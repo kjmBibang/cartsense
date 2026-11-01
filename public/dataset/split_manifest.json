@@ -1,0 +1,59 @@
+{
+  "input": "ECommerce_consumer behaviour.csv",
+  "rows_read": 2019501,
+  "junk_rows_dropped": 0,
+  "seed": 42,
+  "history_rows_target": 1000000,
+  "batch_rows_target": 200000,
+  "files": [
+    {
+      "file": "modeldataset.csv",
+      "rows": 999980,
+      "orders": 98927,
+      "users": 52246,
+      "size_mib": 56.6
+    },
+    {
+      "file": "POSmock1.csv",
+      "rows": 199997,
+      "orders": 20109,
+      "users": 10577,
+      "size_mib": 11.3
+    },
+    {
+      "file": "POSmock2.csv",
+      "rows": 199956,
+      "orders": 19900,
+      "users": 10442,
+      "size_mib": 11.3
+    },
+    {
+      "file": "POSmock3.csv",
+      "rows": 199974,
+      "orders": 19525,
+      "users": 10260,
+      "size_mib": 11.3
+    },
+    {
+      "file": "POSmock4.csv",
+      "rows": 199982,
+      "orders": 19909,
+      "users": 10355,
+      "size_mib": 11.3
+    },
+    {
+      "file": "POSmock5.csv",
+      "rows": 199907,
+      "orders": 19749,
+      "users": 10386,
+      "size_mib": 11.3
+    },
+    {
+      "file": "POSmock6.csv",
+      "rows": 19705,
+      "orders": 1881,
+      "users": 1007,
+      "size_mib": 1.1
+    }
+  ]
+}
