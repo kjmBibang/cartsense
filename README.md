@@ -25,6 +25,17 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 
 The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen reports that row while importing the valid rows.
 
+## Python analysis payload
+
+The reusable analysis runtime lives in [`python/cartsense_analysis`](python/cartsense_analysis). It generates a versioned JSON payload for the future backend without requiring a notebook session:
+
+```powershell
+python -m pip install -e ".[dev]"
+python -m cartsense_analysis --input public/mock-data/cart-sense-orders.csv --output analysis.json
+```
+
+The Python package uses one basket per order for Apriori rules, bundles, and network edges. The notebook remains the exploratory reference; the generated payload is the integration boundary for later Express wiring.
+
 ## Verification
 
 ```bash
