@@ -9,7 +9,7 @@ const app = express()
 const port = Number(process.env.PORT || 3001)
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
-app.use(express.json())
+app.use(express.json({ limit: process.env.ANALYSIS_PAYLOAD_MAX_SIZE || '25mb' }))
 
 app.get('/api/health', async (_request, response) => {
   try {
@@ -25,6 +25,9 @@ app.use('/api/analysis', analysisRoutes)
 
 app.use((error, _request, response, next) => {
   void next
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    return response.status(400).json({ error: 'Request body must contain valid JSON.' })
+  }
   if (error.statusCode) {
     return response.status(error.statusCode).json({ error: error.message })
   }

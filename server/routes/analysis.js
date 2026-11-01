@@ -1,7 +1,32 @@
 import { Router } from 'express'
 import pool from '../config/database.js'
+import { getAnalysisPayloadStatus, readAnalysisPayload, saveAnalysisPayload } from '../services/analysisPayload.js'
 
 const router = Router()
+
+router.post('/payload', async (request, response, next) => {
+  try {
+    return response.status(201).json(await saveAnalysisPayload(request.body))
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/payload', async (_request, response, next) => {
+  try {
+    return response.json(await readAnalysisPayload())
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/payload/status', async (_request, response, next) => {
+  try {
+    return response.json(await getAnalysisPayloadStatus())
+  } catch (error) {
+    return next(error)
+  }
+})
 
 function importId(request) {
   const value = Number(request.query.importId)

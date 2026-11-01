@@ -13,3 +13,17 @@ export async function getAnalysisSummary(importId) {
   if (!response.ok) throw new Error(payload.error || 'Could not load analysis summary.')
   return payload
 }
+
+export async function getAnalysisPayload() {
+  const response = await fetch('/api/analysis/payload')
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || 'Could not load the analysis payload.')
+  return payload
+}
+
+export async function getAnalysisPayloadStatus() {
+  const response = await fetch('/api/analysis/payload/status')
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || 'Could not load payload status.')
+  return payload
+}
