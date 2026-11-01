@@ -8,10 +8,6 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-* {
-  box-sizing: border-box;
-}
-
 html,
 body,
 #root {
@@ -22,7 +18,7 @@ body,
 
 body {
   min-height: 100vh;
-  background: #d84040;
+  background: #fff;
 }
 
 #root {
