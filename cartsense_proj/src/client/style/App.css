@@ -1,0 +1,40 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1c1c1a;
+  background: #f6f5f1;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button { font: inherit; }
+.app-shell { min-height: 100vh; }
+.menu-trigger { position: fixed; z-index: 20; top: 24px; left: 24px; display: grid; width: 42px; height: 42px; place-content: center; gap: 5px; padding: 0; border: 1px solid #e1dfd8; border-radius: 10px; color: #1c1c1a; background: #fbfaf7; cursor: pointer; box-shadow: 0 4px 14px rgba(55, 48, 38, 0.06); }
+.menu-trigger:hover { background: #eeece5; }
+.menu-trigger span { display: block; width: 17px; height: 1.5px; background: currentColor; }
+.drawer-backdrop { position: fixed; z-index: 29; inset: 0; padding: 0; border: 0; background: rgba(28, 28, 26, 0.2); cursor: pointer; }
+.screen-nav { position: fixed; z-index: 30; inset: 0 auto 0 0; width: 264px; padding: 28px 18px; border-right: 1px solid #e1dfd8; background: #fbfaf7; box-shadow: 12px 0 32px rgba(55, 48, 38, 0.08); transform: translateX(-100%); transition: transform 180ms ease; }
+.screen-nav.drawer-open { transform: translateX(0); }
+.drawer-header { display: flex; align-items: flex-start; justify-content: space-between; }
+.brand { padding: 0 14px 36px; font-size: 20px; font-weight: 700; letter-spacing: -0.04em; }
+.drawer-close { width: 30px; height: 30px; padding: 0; border: 0; border-radius: 7px; color: #68665f; background: transparent; cursor: pointer; font-size: 24px; line-height: 1; }
+.drawer-close:hover { color: #1c1c1a; background: #eeece5; }
+.nav-label { margin: 0 14px 10px; color: #94918a; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.screen-nav nav { display: grid; gap: 3px; }
+.nav-item { width: 100%; padding: 10px 14px; border: 0; border-radius: 8px; color: #68665f; background: transparent; cursor: pointer; font-size: 13px; text-align: left; }
+.nav-item:hover, .nav-item.active { color: #1c1c1a; background: #eeece5; }
+.screen-stage { display: grid; min-height: 100vh; place-items: center; padding: 88px 48px 48px; }
+.screen-placeholder { width: min(100%, 720px); padding: 56px; border: 1px dashed #d5d1c7; border-radius: 14px; background: rgba(255, 255, 255, 0.35); }
+.screen-number { color: #9d7558; font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.screen-placeholder h1 { margin: 16px 0 12px; font-size: clamp(32px, 5vw, 56px); letter-spacing: -0.06em; line-height: 1; }
+.screen-placeholder p { max-width: 520px; margin: 0; color: #77736a; font-size: 15px; line-height: 1.6; }
+@media (max-width: 760px) {
+  .menu-trigger { top: 16px; left: 16px; }
+  .screen-nav { width: min(264px, calc(100vw - 28px)); padding: 22px 14px; }
+  .brand { padding: 0 10px 30px; }
+  .nav-label { margin-left: 10px; }
+  .screen-stage { min-height: 100vh; padding: 78px 18px 24px; }
+  .screen-placeholder { padding: 32px 24px; }
+}

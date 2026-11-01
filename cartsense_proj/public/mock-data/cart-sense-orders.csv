@@ -1,0 +1,72 @@
+order_id,user_id,order_number,order_dow,order_hour_of_day,days_since_prior_order,product_id,product_name,department,reordered,add_to_cart_order
+10001,501,1,1,8,,1,Bananas,Produce,0,1
+10001,501,1,1,8,,2,Whole Milk,Dairy Eggs,0,2
+10001,501,1,1,8,,3,Whole Wheat Bread,Bakery,0,3
+10001,501,1,1,8,,4,Large Eggs,Dairy Eggs,0,4
+10001,501,1,1,8,,5,Avocados,Produce,0,5
+10002,501,2,2,18,7,1,Bananas,Produce,1,1
+10002,501,2,2,18,7,2,Whole Milk,Dairy Eggs,1,2
+10002,501,2,2,18,7,6,Greek Yogurt,Dairy Eggs,0,3
+10002,501,2,2,18,7,7,Ground Coffee,Pantry,0,4
+10002,501,2,2,18,7,8,Spinach,Produce,0,5
+10003,501,3,5,9,14,1,Bananas,Produce,1,1
+10003,501,3,5,9,14,3,Whole Wheat Bread,Bakery,1,2
+10003,501,3,5,9,14,4,Large Eggs,Dairy Eggs,1,3
+10003,501,3,5,9,14,9,Chicken Breast,Meat Seafood,0,4
+10003,501,3,5,9,14,10,Brown Rice,Pantry,0,5
+10004,502,1,0,10,,2,Whole Milk,Dairy Eggs,0,1
+10004,502,1,0,10,,4,Large Eggs,Dairy Eggs,0,2
+10004,502,1,0,10,,11,Strawberries,Produce,0,3
+10004,502,1,0,10,,6,Greek Yogurt,Dairy Eggs,0,4
+10004,502,1,0,10,,12,Granola,Pantry,0,5
+10005,502,2,6,11,6,2,Whole Milk,Dairy Eggs,1,1
+10005,502,2,6,11,6,11,Strawberries,Produce,1,2
+10005,502,2,6,11,6,6,Greek Yogurt,Dairy Eggs,1,3
+10005,502,2,6,11,6,12,Granola,Pantry,1,4
+10005,502,2,6,11,6,13,Honey,Pantry,0,5
+10006,502,3,3,17,10,2,Whole Milk,Dairy Eggs,1,1
+10006,502,3,3,17,10,4,Large Eggs,Dairy Eggs,1,2
+10006,502,3,3,17,10,14,Avocado,Produce,0,3
+10006,502,3,3,17,10,15,Sourdough Bread,Bakery,0,4
+10006,502,3,3,17,10,16,Tomato Sauce,Pantry,0,5
+10007,503,1,4,7,,1,Bananas,Produce,0,1
+10007,503,1,4,7,,2,Whole Milk,Dairy Eggs,0,2
+10007,503,1,4,7,,7,Ground Coffee,Pantry,0,3
+10007,503,1,4,7,,17,Oatmeal,Pantry,0,4
+10007,503,1,4,7,,18,Blueberries,Produce,0,5
+10008,503,2,4,7,7,1,Bananas,Produce,1,1
+10008,503,2,4,7,7,2,Whole Milk,Dairy Eggs,1,2
+10008,503,2,4,7,7,7,Ground Coffee,Pantry,1,3
+10008,503,2,4,7,7,17,Oatmeal,Pantry,1,4
+10008,503,2,4,7,7,18,Blueberries,Produce,1,5
+10009,504,1,6,15,,9,Chicken Breast,Meat Seafood,0,1
+10009,504,1,6,15,,19,Pasta,Pantry,0,2
+10009,504,1,6,15,,16,Tomato Sauce,Pantry,0,3
+10009,504,1,6,15,,20,Parmesan Cheese,Dairy Eggs,0,4
+10009,504,1,6,15,,8,Spinach,Produce,0,5
+10010,504,2,6,16,14,9,Chicken Breast,Meat Seafood,1,1
+10010,504,2,6,16,14,19,Pasta,Pantry,1,2
+10010,504,2,6,16,14,16,Tomato Sauce,Pantry,1,3
+10010,504,2,6,16,14,20,Parmesan Cheese,Dairy Eggs,1,4
+10010,504,2,6,16,14,8,Spinach,Produce,1,5
+10011,505,1,2,20,,2,Whole Milk,Dairy Eggs,0,1
+10011,505,1,2,20,,3,Whole Wheat Bread,Bakery,0,2
+10011,505,1,2,20,,4,Large Eggs,Dairy Eggs,0,3
+10011,505,1,2,20,,21,Orange Juice,Beverages,0,4
+10011,505,1,2,20,,22,Potato Chips,Snacks,0,5
+10012,505,2,2,20,8,2,Whole Milk,Dairy Eggs,1,1
+10012,505,2,2,20,8,3,Whole Wheat Bread,Bakery,1,2
+10012,505,2,2,20,8,4,Large Eggs,Dairy Eggs,1,3
+10012,505,2,2,20,8,21,Orange Juice,Beverages,1,4
+10012,505,2,2,20,8,22,Potato Chips,Snacks,1,5
+10013,505,3,5,19,12,2,Whole Milk,Dairy Eggs,1,1
+10013,505,3,5,19,12,3,Whole Wheat Bread,Bakery,1,2
+10013,505,3,5,19,12,23,Peanut Butter,Pantry,0,3
+10013,505,3,5,19,12,24,Apples,Produce,0,4
+10013,505,3,5,19,12,21,Orange Juice,Beverages,1,5
+,505,4,5,19,7,2,Whole Milk,Dairy Eggs,1,1
+10014,505,4,5,19,7,2,Whole Milk,Dairy Eggs,1,1
+10014,505,4,5,19,7,3,Whole Wheat Bread,Bakery,1,2
+10014,505,4,5,19,7,23,Peanut Butter,Pantry,1,3
+10014,505,4,5,19,7,24,Apples,Produce,1,4
+10014,505,4,5,19,7,25,Dark Chocolate,Snacks,0,5
