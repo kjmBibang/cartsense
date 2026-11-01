@@ -1,1 +1,16 @@
-.screen-placeholder[data-screen="upload-data-check"] {}
+.upload-screen { width: min(100%, 720px); }
+.upload-screen .screen-placeholder { width: 100%; }
+.upload-panel { display: grid; gap: 14px; margin-top: 18px; padding: 24px; border: 1px solid #e1dfd8; border-radius: 14px; background: #fbfaf7; box-shadow: 0 8px 24px rgba(55, 48, 38, 0.05); }
+.upload-dropzone { display: grid; gap: 8px; min-height: 132px; place-content: center; padding: 24px; border: 1px dashed #c9b8a5; border-radius: 10px; color: #1c1c1a; background: #f6f1e9; cursor: pointer; text-align: center; }
+.upload-dropzone:hover { border-color: #9d7558; background: #f1e9de; }
+.upload-dropzone span { color: #77736a; font-size: 13px; }
+.upload-input { display: none; }
+.upload-action { min-height: 42px; border: 0; border-radius: 8px; color: #fff; background: #315b4e; cursor: pointer; font-weight: 700; }
+.upload-action:disabled { cursor: not-allowed; opacity: 0.45; }
+.upload-error, .upload-warning { margin: 0; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.upload-error { color: #8d3026; background: #f8e9e5; }
+.upload-warning { color: #80551c; background: #fbf1dc; }
+.upload-stats { display: flex; flex-wrap: wrap; gap: 12px; color: #68665f; font-size: 13px; }
+.upload-stats span { padding-right: 12px; border-right: 1px solid #e1dfd8; }
+.upload-stats span:last-child { border-right: 0; }
+.upload-stats strong { color: #1c1c1a; }
