@@ -21,7 +21,7 @@ export default function UploadDataCheck() {
       window.dispatchEvent(new CustomEvent('cartsense:payload-updated'))
       setResult(uploadResult)
     } catch (uploadError) {
-      setError(uploadError.message)
+      setError(uploadError.message || 'Could not upload the CSV.')
     } finally {
       setIsUploading(false)
     }

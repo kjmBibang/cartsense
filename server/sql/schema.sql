@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS order_lines (
   add_to_cart_order INT UNSIGNED NULL,
   PRIMARY KEY (id),
   CONSTRAINT order_lines_import_fk FOREIGN KEY (import_id) REFERENCES imports (id) ON DELETE CASCADE,
-  UNIQUE KEY order_lines_import_order_product_idx (import_id, order_id, product_id),
   KEY order_lines_import_order_idx (import_id, order_id),
   KEY order_lines_import_product_idx (import_id, product_id),
   KEY order_lines_import_department_idx (import_id, department)

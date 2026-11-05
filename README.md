@@ -5,7 +5,7 @@ CartSense is a React/Vite client with an Express API for importing grocery order
 ## Local setup with XAMPP
 
 1. Start **MySQL** in the XAMPP Control Panel. The default configuration used here is `localhost:3306`, user `root`, with an empty password.
-2. In phpMyAdmin, open the SQL tab and run [`server/sql/schema.sql`](server/sql/schema.sql) to create the `cartsense` database and tables.
+2. In phpMyAdmin, open the SQL tab and run [`server/sql/schema.sql`](server/sql/schema.sql) to create the `cartsense` database and tables. The API cannot import uploads until this step is complete.
 3. Copy `.env.example` to `.env`. Change `DB_PORT` or `DB_PASSWORD` if your XAMPP installation differs.
 4. Install dependencies with `npm install`.
 5. Start both applications with `npm run dev:full`.
@@ -81,6 +81,8 @@ Invoke-RestMethod http://localhost:3001/api/analysis/payload | ConvertTo-Json -D
 The frontend reads the payload through Express, never from the file system. The default local storage path is `artifacts/analysis-payload.json`; it is ignored by Git and should not be committed. Change `ANALYSIS_PAYLOAD_PATH` in `.env` when a teammate needs a different local location.
 
 The existing CSV upload and MySQL analysis routes still require MySQL and the schema from [`server/sql/schema.sql`](server/sql/schema.sql). The payload handoff routes do not require a database connection, so frontend and Python integration work can proceed independently.
+
+POS exports may contain the same product more than once in an order, so CartSense stores each uploaded order line and does not enforce a unique `(import_id, order_id, product_id)` constraint. The upload service automatically removes that legacy constraint from databases created with an older schema. You can also run [`server/sql/migrations/002_allow_repeated_products.sql`](server/sql/migrations/002_allow_repeated_products.sql) manually in phpMyAdmin.
 
 ## Verification
 

@@ -9,6 +9,12 @@ const app = express()
 const port = Number(process.env.PORT || 3001)
 const maxUploadSizeMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 100)
 
+function databaseSetupError() {
+  const error = new Error('CartSense database is not initialized. Run server/sql/schema.sql in MySQL or phpMyAdmin, then restart the API.')
+  error.statusCode = 503
+  return error
+}
+
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
 app.use(express.json({ limit: process.env.ANALYSIS_PAYLOAD_MAX_SIZE || '25mb' }))
 
@@ -17,6 +23,13 @@ app.get('/api/health', async (_request, response) => {
     await checkDatabase()
     response.json({ status: 'ok', database: 'connected' })
   } catch (error) {
+    if (error.code === 'ER_BAD_DB_ERROR') {
+      return response.status(503).json({
+        status: 'error',
+        database: 'not_initialized',
+        message: databaseSetupError().message,
+      })
+    }
     response.status(503).json({ status: 'error', database: 'unavailable', message: error.message })
   }
 })
@@ -26,6 +39,9 @@ app.use('/api/analysis', analysisRoutes)
 
 app.use((error, _request, response, next) => {
   void next
+  if (error.code === 'ER_BAD_DB_ERROR') {
+    error = databaseSetupError()
+  }
   if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
     return response.status(400).json({ error: 'Request body must contain valid JSON.' })
   }
