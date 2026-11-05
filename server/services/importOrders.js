@@ -1,6 +1,8 @@
 import { parse } from 'csv-parse/sync'
 import pool, { withTransaction } from '../config/database.js'
 
+const duplicateConstraintName = 'order_lines_import_order_product_idx'
+
 const requiredColumns = [
   'order_id',
   'user_id',
@@ -57,6 +59,7 @@ export async function importOrders(file) {
     .filter(Boolean)
 
   const validRows = records.filter((_row, index) => !validationErrors.some((item) => item.row === index + 2))
+  await removeLegacyDuplicateConstraint()
   const result = await withTransaction(async (connection) => {
     const [importResult] = await connection.execute(
       `INSERT INTO imports (original_filename, total_rows, skipped_rows, validation_errors)
@@ -103,6 +106,21 @@ export async function importOrders(file) {
     skippedRows: validationErrors.length,
     validationErrors,
   }
+}
+
+async function removeLegacyDuplicateConstraint() {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS constraintCount
+     FROM information_schema.statistics
+     WHERE table_schema = DATABASE()
+       AND table_name = 'order_lines'
+       AND index_name = ?
+       AND non_unique = 0`,
+    [duplicateConstraintName],
+  )
+  if (Number(rows[0]?.constraintCount) === 0) return
+
+  await pool.query(`ALTER TABLE order_lines DROP INDEX ${duplicateConstraintName}`)
 }
 
 export async function getLatestImport() {

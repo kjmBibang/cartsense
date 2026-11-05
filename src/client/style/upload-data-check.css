@@ -10,6 +10,9 @@
 .upload-error, .upload-warning { margin: 0; padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; }
 .upload-error { color: #8d3026; background: #f8e9e5; }
 .upload-warning { color: #80551c; background: #fbf1dc; }
+.upload-progress { display: grid; gap: 5px; padding: 14px; border-radius: 8px; color: #315b4e; background: #eaf2ee; font-size: 13px; line-height: 1.5; }
+.upload-progress span, .upload-progress small { color: #68665f; }
+.upload-progress small { font-size: 12px; }
 .upload-stats { display: flex; flex-wrap: wrap; gap: 12px; color: #68665f; font-size: 13px; }
 .upload-stats span { padding-right: 12px; border-right: 1px solid #e1dfd8; }
 .upload-stats span:last-child { border-right: 0; }
