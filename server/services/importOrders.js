@@ -10,6 +10,13 @@ const requiredColumns = [
   'product_name',
   'department',
 ]
+const insertBatchSize = 1000
+const orderLineColumns = 12
+
+function stageError(error, stage) {
+  if (!error.stage) error.stage = stage
+  return error
+}
 
 function numberOrNull(value) {
   if (value === undefined || value === null || value.trim() === '') return null
@@ -43,6 +50,7 @@ export async function importOrders(file) {
   } catch (error) {
     const parseError = new Error(`Could not parse CSV: ${error.message}`)
     parseError.statusCode = 400
+    parseError.stage = 'csv_parsing'
     throw parseError
   }
 
@@ -51,6 +59,7 @@ export async function importOrders(file) {
   if (missingColumns.length) {
     const error = new Error(`Missing required columns: ${missingColumns.join(', ')}`)
     error.statusCode = 400
+    error.stage = 'csv_parsing'
     throw error
   }
 
@@ -59,8 +68,10 @@ export async function importOrders(file) {
     .filter(Boolean)
 
   const validRows = records.filter((_row, index) => !validationErrors.some((item) => item.row === index + 2))
-  await removeLegacyDuplicateConstraint()
-  const result = await withTransaction(async (connection) => {
+  let result
+  try {
+    await removeLegacyDuplicateConstraint()
+    result = await withTransaction(async (connection) => {
     const [importResult] = await connection.execute(
       `INSERT INTO imports (original_filename, total_rows, skipped_rows, validation_errors)
        VALUES (?, ?, ?, ?)`,
@@ -68,13 +79,12 @@ export async function importOrders(file) {
     )
     const importId = importResult.insertId
 
-    for (const row of validRows) {
-      await connection.execute(
-        `INSERT INTO order_lines
-          (import_id, order_id, user_id, order_number, order_dow, order_hour_of_day,
-           days_since_prior_order, product_id, product_name, department, reordered, add_to_cart_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
+      const columns = `(import_id, order_id, user_id, order_number, order_dow, order_hour_of_day,
+        days_since_prior_order, product_id, product_name, department, reordered, add_to_cart_order)`
+      for (let offset = 0; offset < validRows.length; offset += insertBatchSize) {
+        const batch = validRows.slice(offset, offset + insertBatchSize)
+        const placeholders = batch.map(() => `(${Array(orderLineColumns).fill('?').join(', ')})`).join(', ')
+        const values = batch.flatMap((row) => [
           importId,
           Number(row.order_id),
           Number(row.user_id),
@@ -87,16 +97,27 @@ export async function importOrders(file) {
           row.department.trim(),
           Number(row.reordered) === 1 ? 1 : 0,
           numberOrNull(row.add_to_cart_order),
-        ],
-      )
-    }
+        ])
+        await connection.execute(`INSERT INTO order_lines ${columns} VALUES ${placeholders}`, values)
+      }
 
     await connection.execute(
       `UPDATE imports SET imported_rows = ?, status = 'completed' WHERE id = ?`,
       [validRows.length, importId],
     )
     return importId
-  })
+    })
+  } catch (error) {
+    if (error.code === 'ER_NO_SUCH_TABLE' || error.code === 'ER_BAD_DB_ERROR') {
+      error.stage = 'database_initialization'
+      if (error.code === 'ER_NO_SUCH_TABLE') {
+        error.message = 'CartSense database tables are not initialized. Run server/sql/schema.sql in MySQL or phpMyAdmin, then retry the upload.'
+        error.statusCode = 503
+      }
+      throw error
+    }
+    throw stageError(error, 'database_import')
+  }
 
   return {
     importId: result,
