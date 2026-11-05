@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import { importOrders } from '../services/importOrders.js'
+import { publishAnalysisForUpload } from '../services/analysisPipeline.js'
 
 const router = Router()
 const upload = multer({
@@ -17,7 +18,9 @@ const upload = multer({
 router.post('/orders', upload.single('file'), async (request, response, next) => {
   if (!request.file) return response.status(400).json({ error: 'A CSV file is required in the file field.' })
   try {
-    return response.status(201).json(await importOrders(request.file))
+    const importResult = await importOrders(request.file)
+    const analysis = await publishAnalysisForUpload(request.file)
+    return response.status(201).json({ ...importResult, analysis })
   } catch (error) {
     return next(error)
   }

@@ -26,7 +26,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 - `GET /api/analysis/payload` returns the latest stored Python payload for the frontend.
 - `GET /api/analysis/payload/status` reports whether a payload is available without returning the full artifact.
 
-The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen reports that row while importing the valid rows.
+The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen reports that row while importing the valid rows and publishes the generated Python analysis payload for the dashboard.
 
 ## Python analysis payload
 
@@ -62,7 +62,9 @@ Copy-Item .env.example .env -ErrorAction SilentlyContinue
 npm run dev:full
 ```
 
-The Python command is the producer. Express does not start Python automatically. To publish a payload through the backend instead of sharing the file directly, use a second PowerShell terminal while Express is running:
+The Python command can also be run manually. When a CSV is uploaded through the frontend, Express runs the same Python package automatically, validates the generated payload, and publishes it before returning the upload result. Ensure the Python package and its dependencies are installed in the environment used by the API. Set `PYTHON_EXECUTABLE` if the API should use a specific interpreter.
+
+To publish a manually generated payload through the backend instead of sharing the file directly, use a second PowerShell terminal while Express is running:
 
 ```powershell
 $payload = Get-Content artifacts/analysis-payload.json -Raw

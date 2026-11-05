@@ -24,19 +24,27 @@ export default function ExecutiveDashboard() {
   useEffect(() => {
     let active = true
 
-    getAnalysisPayload()
-      .then((nextPayload) => {
-        if (active) setPayload(nextPayload)
-      })
-      .catch((requestError) => {
-        if (active) setError(requestError.message || 'Could not load the analysis payload.')
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+    function loadPayload() {
+      setLoading(true)
+      setError('')
+      return getAnalysisPayload()
+        .then((nextPayload) => {
+          if (active) setPayload(nextPayload)
+        })
+        .catch((requestError) => {
+          if (active) setError(requestError.message || 'Could not load the analysis payload.')
+        })
+        .finally(() => {
+          if (active) setLoading(false)
+        })
+    }
+
+    loadPayload()
+    window.addEventListener('cartsense:payload-updated', loadPayload)
 
     return () => {
       active = false
+      window.removeEventListener('cartsense:payload-updated', loadPayload)
     }
   }, [])
 

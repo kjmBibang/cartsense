@@ -18,6 +18,7 @@ export default function UploadDataCheck() {
     try {
       const uploadResult = await uploadOrders(selectedFile)
       localStorage.setItem('cartsense.importId', String(uploadResult.importId))
+      window.dispatchEvent(new CustomEvent('cartsense:payload-updated'))
       setResult(uploadResult)
     } catch (uploadError) {
       setError(uploadError.message)
