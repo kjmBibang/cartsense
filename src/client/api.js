@@ -17,6 +17,7 @@ export async function getAnalysisSummary(importId) {
 export async function getAnalysisPayload() {
   const response = await fetch('/api/analysis/payload')
   const payload = await response.json()
+  if (response.status === 404) return null
   if (!response.ok) throw new Error(payload.error || 'Could not load the analysis payload.')
   return payload
 }

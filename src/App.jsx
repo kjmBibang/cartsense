@@ -29,7 +29,7 @@ const screens = [
 ]
 
 function App() {
-  const [activeScreen, setActiveScreen] = useState('upload')
+  const [activeScreen, setActiveScreen] = useState('dashboard')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const Screen = screens.find(([id]) => id === activeScreen)?.[2] ?? UploadDataCheck
 
@@ -84,7 +84,7 @@ function App() {
         </nav>
       </aside>
       <main className="screen-stage">
-        <Screen />
+        <Screen onNavigate={setActiveScreen} />
       </main>
     </div>
   )

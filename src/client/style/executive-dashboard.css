@@ -10,6 +10,10 @@
 .kpi-card strong { font-size: 30px; font-weight: 600; letter-spacing: -0.05em; }
 .dashboard-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .chart-card { min-height: 340px; padding: 22px; }
+.dashboard-screen > .chart-card[role="status"] { display: grid; min-height: 180px; place-content: center; justify-items: center; gap: 18px; text-align: center; }
+.dashboard-screen > .chart-card[role="status"] p { margin: 0; color: #77736a; }
+.dashboard-upload-button { padding: 10px 16px; border: 1px solid #9d7558; border-radius: 8px; color: #fff; background: #9d7558; cursor: pointer; font-weight: 600; }
+.dashboard-upload-button:hover { background: #855f46; }
 .chart-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 28px; }
 .chart-heading h2 { margin: 0 0 5px; font-size: 17px; letter-spacing: -0.02em; }
 .chart-heading p { margin: 0; color: #94918a; font-size: 13px; }
