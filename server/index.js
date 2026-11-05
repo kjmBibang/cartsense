@@ -7,6 +7,7 @@ import analysisRoutes from './routes/analysis.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
+const maxUploadSizeMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 100)
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
 app.use(express.json({ limit: process.env.ANALYSIS_PAYLOAD_MAX_SIZE || '25mb' }))
@@ -32,7 +33,7 @@ app.use((error, _request, response, next) => {
     return response.status(error.statusCode).json({ error: error.message })
   }
   if (error.code === 'LIMIT_FILE_SIZE') {
-    return response.status(413).json({ error: 'The uploaded file is too large.' })
+    return response.status(413).json({ error: `The uploaded file is too large. CSV uploads are limited to ${maxUploadSizeMb} MB.` })
   }
   if (error.message === 'Only CSV files are supported.') {
     return response.status(415).json({ error: error.message })

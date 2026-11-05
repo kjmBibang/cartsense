@@ -17,7 +17,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 ## API
 
 - `GET /api/health` checks Express and MySQL.
-- `POST /api/uploads/orders` accepts a CSV in the multipart `file` field. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally.
+- `POST /api/uploads/orders` accepts a CSV in the multipart `file` field. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally. Uploads are limited to 100 MB by default; change `MAX_UPLOAD_SIZE_MB` in `.env` for larger POS exports.
 - `GET /api/analysis/summary?importId=1` returns order, customer, product, basket, reorder, day, and hour metrics.
 - `GET /api/analysis/products?importId=1` returns product order counts and reorder rates.
 - `GET /api/analysis/departments?importId=1` returns department totals.

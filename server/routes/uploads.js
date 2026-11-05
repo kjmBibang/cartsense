@@ -4,9 +4,10 @@ import { importOrders } from '../services/importOrders.js'
 import { publishAnalysisForUpload } from '../services/analysisPipeline.js'
 
 const router = Router()
+const maxUploadSizeMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 100)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: Number(process.env.MAX_UPLOAD_SIZE_MB || 10) * 1024 * 1024 },
+  limits: { fileSize: maxUploadSizeMb * 1024 * 1024 },
   fileFilter: (_request, file, callback) => {
     if (file.mimetype === 'text/csv' || file.originalname.toLowerCase().endsWith('.csv')) {
       return callback(null, true)
