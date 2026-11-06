@@ -17,7 +17,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 ## API
 
 - `GET /api/health` checks Express and MySQL.
-- `POST /api/uploads/orders` accepts a CSV in the multipart `file` field. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally. Uploads are limited to 100 MB by default; change `MAX_UPLOAD_SIZE_MB` in `.env` for larger POS exports.
+- `POST /api/uploads/orders` accepts a CSV in the multipart `file` field and returns a `jobId` with status `202`. Poll `GET /api/uploads/orders/:jobId` until it returns `completed` or `failed`. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally. Uploads are limited to 100 MB by default; change `MAX_UPLOAD_SIZE_MB` in `.env` for larger POS exports.
 - `GET /api/analysis/summary?importId=1` returns order, customer, product, basket, reorder, day, and hour metrics.
 - `GET /api/analysis/products?importId=1` returns product order counts and reorder rates.
 - `GET /api/analysis/departments?importId=1` returns department totals.
@@ -26,7 +26,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 - `GET /api/analysis/payload` returns the latest stored Python payload for the frontend.
 - `GET /api/analysis/payload/status` reports whether a payload is available without returning the full artifact.
 
-The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen reports that row while importing the valid rows and publishes the generated Python analysis payload for the dashboard.
+The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen polls the processing job, reports that row after completion, and refreshes every analysis screen from the generated Python payload.
 
 ## Python analysis payload
 
@@ -62,7 +62,7 @@ Copy-Item .env.example .env -ErrorAction SilentlyContinue
 npm run dev:full
 ```
 
-The Python command can also be run manually. When a CSV is uploaded through the frontend, Express runs the same Python package automatically, validates the generated payload, and publishes it before returning the upload result. Ensure the Python package and its dependencies are installed in the environment used by the API. Set `PYTHON_EXECUTABLE` if the API should use a specific interpreter.
+The Python command can also be run manually. When a CSV is uploaded through the frontend, Express runs the same Python package automatically, validates the generated payload, and publishes it before marking the upload job complete. Ensure the Python package and its dependencies are installed in the environment used by the API. Set `PYTHON_EXECUTABLE` if the API should use a specific interpreter.
 
 To publish a manually generated payload through the backend instead of sharing the file directly, use a second PowerShell terminal while Express is running:
 
