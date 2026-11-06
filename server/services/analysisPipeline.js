@@ -7,9 +7,10 @@ import { saveAnalysisPayload } from './analysisPayload.js'
 
 const repositoryPythonPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../python')
 
-function pipelineError(message, cause) {
+function pipelineError(message, cause, stage = 'python_analysis') {
   const error = new Error(message)
   error.statusCode = 502
+  error.stage = stage
   if (cause) error.cause = cause
   return error
 }
@@ -51,19 +52,34 @@ function runPythonAnalysis(inputPath, outputPath) {
   })
 }
 
-export async function publishAnalysisForUpload(file) {
+export async function publishAnalysisForUpload(file, onStatus = () => {}) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'cartsense-analysis-'))
   const inputPath = path.join(directory, path.basename(file.originalname || 'orders.csv'))
   const outputPath = path.join(directory, 'analysis-payload.json')
 
   try {
     await writeFile(inputPath, file.buffer)
+    onStatus({ status: 'analyzing', progress: 65, message: 'Running basket analysis' })
     await runPythonAnalysis(inputPath, outputPath)
-    const payload = JSON.parse(await readFile(outputPath, 'utf8'))
-    return await saveAnalysisPayload(payload)
+    let payload
+    try {
+      payload = JSON.parse(await readFile(outputPath, 'utf8'))
+    } catch (error) {
+      throw pipelineError(`Python analysis produced an invalid payload: ${error.message}`, error, 'payload_validation')
+    }
+    try {
+      onStatus({ status: 'publishing', progress: 90, stage: 'payload_publication', message: 'Publishing analysis payload' })
+      return await saveAnalysisPayload(payload)
+    } catch (error) {
+      if (error.statusCode === 400) {
+        error.stage = 'payload_validation'
+        throw error
+      }
+      throw pipelineError(`The analysis payload could not be published: ${error.message}`, error, 'payload_publication')
+    }
   } catch (error) {
-    if (error.statusCode) throw error
-    throw pipelineError('The generated analysis payload could not be published.', error)
+    if (error.stage) throw error
+    throw pipelineError('The analysis payload could not be published.', error, 'payload_publication')
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

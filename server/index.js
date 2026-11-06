@@ -46,13 +46,13 @@ app.use((error, _request, response, next) => {
     return response.status(400).json({ error: 'Request body must contain valid JSON.' })
   }
   if (error.statusCode) {
-    return response.status(error.statusCode).json({ error: error.message })
+    return response.status(error.statusCode).json({ error: error.message, ...(error.stage ? { stage: error.stage } : {}) })
   }
   if (error.code === 'LIMIT_FILE_SIZE') {
-    return response.status(413).json({ error: `The uploaded file is too large. CSV uploads are limited to ${maxUploadSizeMb} MB.` })
+    return response.status(413).json({ error: `The uploaded file is too large. CSV uploads are limited to ${maxUploadSizeMb} MB.`, stage: 'csv_parsing' })
   }
   if (error.message === 'Only CSV files are supported.') {
-    return response.status(415).json({ error: error.message })
+    return response.status(415).json({ error: error.message, stage: 'csv_parsing' })
   }
   console.error(error)
   return response.status(500).json({ error: 'An unexpected server error occurred.' })
