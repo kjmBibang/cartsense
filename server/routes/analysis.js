@@ -90,7 +90,27 @@ router.get('/summary', async (request, response, next) => {
        GROUP BY order_hour_of_day ORDER BY order_hour_of_day`,
       [currentImportId],
     )
-    return response.json({ ...rows[0], byDay, byHour })
+    const numeric = (value, digits = null) => {
+      const number = Number(value ?? 0)
+      if (!Number.isFinite(number)) return 0
+      return digits === null ? number : Number(number.toFixed(digits))
+    }
+    const dayValues = new Map(byDay.map((row) => [Number(row.day), numeric(row.orders)]))
+    const hourValues = new Map(byHour.map((row) => [Number(row.hour), numeric(row.orders)]))
+
+    return response.json({
+      importId: currentImportId,
+      generatedAt: metadata.generatedAt,
+      source: metadata.source,
+      orders: numeric(metrics.orders),
+      customers: numeric(metrics.customers),
+      products: numeric(metrics.products),
+      items: numeric(metrics.items),
+      averageBasketSize: numeric(metrics.averageBasketSize, 2),
+      reorderRate: numeric(metrics.reorderRate, 1),
+      byDay: Array.from({ length: 7 }, (_value, day) => ({ day, orders: dayValues.get(day) ?? 0 })),
+      byHour: Array.from({ length: 24 }, (_value, hour) => ({ hour, orders: hourValues.get(hour) ?? 0 })),
+    })
   } catch (error) {
     return next(error)
   }
@@ -99,18 +119,89 @@ router.get('/summary', async (request, response, next) => {
 router.get('/products', async (request, response, next) => {
   const currentImportId = requireImportId(request, response)
   if (!currentImportId) return
+  const page = queryInteger(request.query.page, 1, 1, 1000000, 'page', response)
+  if (page === null) return
+  const pageSize = queryInteger(request.query.pageSize, 50, 1, 100, 'pageSize', response)
+  if (pageSize === null) return
+  const offset = (page - 1) * pageSize
+  if (!Number.isSafeInteger(offset) || offset > 1000000) {
+    return response.status(400).json({ error: 'Requested page is too large; page offset must not exceed 1000000.' })
+  }
+
+  const search = request.query.search
+  if (search !== undefined && (typeof search !== 'string' || search.length > 100)) {
+    return response.status(400).json({ error: 'search must be a string of at most 100 characters.' })
+  }
+  const department = request.query.department
+  if (department !== undefined && (typeof department !== 'string' || department.length > 255)) {
+    return response.status(400).json({ error: 'department must be a string of at most 255 characters.' })
+  }
+  const sortBy = request.query.sortBy ?? 'orders'
+  const sortColumns = { rank: 'rank', orders: 'orders', units: 'units', reorderRate: 'reorderRate', productName: 'productName', productId: 'productId', department: 'department' }
+  if (typeof sortBy !== 'string' || !Object.hasOwn(sortColumns, sortBy)) {
+    return response.status(400).json({ error: `sortBy must be one of: ${Object.keys(sortColumns).join(', ')}.` })
+  }
+  const order = request.query.order ?? 'desc'
+  if (typeof order !== 'string' || !['asc', 'desc'].includes(order.toLowerCase())) {
+    return response.status(400).json({ error: 'order must be "asc" or "desc".' })
+  }
+  const direction = order.toUpperCase()
+
   try {
-    const [rows] = await pool.execute(
-      `SELECT product_id AS productId, product_name AS productName, department,
-              COUNT(DISTINCT order_id) AS orders,
-              COUNT(*) AS units,
-              ROUND(AVG(reordered) * 100, 1) AS reorderRate
-       FROM order_lines WHERE import_id = ?
-       GROUP BY product_id, product_name, department
-       ORDER BY orders DESC, units DESC`,
-      [currentImportId],
+    const [[importRow]] = await pool.execute('SELECT id FROM imports WHERE id = ?', [currentImportId])
+    if (!importRow) return response.status(404).json({ error: `Import ${currentImportId} was not found.` })
+
+    const filters = []
+    const filterParams = []
+    if (search) {
+      filters.push('(productName LIKE ? OR CAST(productId AS CHAR) LIKE ?)')
+      const escapedSearch = search.replace(/[\\%_]/g, '\\$&')
+      filterParams.push(`%${escapedSearch}%`, `%${escapedSearch}%`)
+    }
+    if (department !== undefined) {
+      filters.push('department = ?')
+      filterParams.push(department)
+    }
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
+    const base = `SELECT product_id AS productId, product_name AS productName, department,
+                         COUNT(DISTINCT order_id) AS orders, COUNT(*) AS units,
+                         AVG(reordered) * 100 AS reorderRate
+                  FROM order_lines WHERE import_id = ?
+                  GROUP BY product_id, product_name, department`
+    const [countRows] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM (${base}) aggregated ${where}`,
+      [currentImportId, ...filterParams],
     )
-    return response.json(rows)
+    const [rows] = await pool.execute(
+      `WITH aggregated AS (${base}), ranked AS (
+         SELECT productId, productName, department, orders, units, reorderRate,
+                ROW_NUMBER() OVER (ORDER BY orders DESC, units DESC, productId ASC) AS rank
+         FROM aggregated
+       )
+       SELECT productId, productName, department, orders, units,
+              ROUND(reorderRate, 1) AS reorderRate, rank
+       FROM ranked ${where}
+       ORDER BY ${sortColumns[sortBy]} ${direction}, productId ASC
+       LIMIT ? OFFSET ?`,
+      [currentImportId, ...filterParams, pageSize, offset],
+    )
+    const numeric = (value) => {
+      const number = Number(value ?? 0)
+      return Number.isFinite(number) ? number : 0
+    }
+    response.set({
+      'X-Total-Count': String(numeric(countRows[0]?.total)),
+      'X-Page': String(page),
+      'X-Page-Size': String(pageSize),
+    })
+    return response.json(rows.map((row) => ({
+      ...row,
+      productId: numeric(row.productId),
+      orders: numeric(row.orders),
+      units: numeric(row.units),
+      reorderRate: numeric(row.reorderRate),
+      rank: numeric(row.rank),
+    })))
   } catch (error) {
     return next(error)
   }
