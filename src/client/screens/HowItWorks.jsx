@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/how-it-works.css'
 
 export default function HowItWorks() {
   return (

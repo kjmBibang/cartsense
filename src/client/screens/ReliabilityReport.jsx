@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/reliability-report.css'
 
 function missingValueCount(values) {
   if (!values || typeof values !== 'object') return null

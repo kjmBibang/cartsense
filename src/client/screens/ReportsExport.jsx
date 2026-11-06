@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/reports-export.css'
 
 function csvCell(value) {
   const text = value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value)

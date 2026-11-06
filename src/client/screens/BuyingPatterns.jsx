@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/buying-patterns.css'
 
 export default function BuyingPatterns() {
   return (

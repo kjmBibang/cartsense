@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/department-insights.css'
 
 export default function DepartmentInsights() {
   return (

@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/bundle-opportunities.css'
 
 function ruleName(rule) {
   return `${rule.antecedentProductName ?? '—'} + ${rule.consequentProductName ?? '—'}`

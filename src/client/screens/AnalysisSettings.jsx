@@ -1,5 +1,4 @@
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState } from '../AnalysisScreen.jsx'
-import '../style/analysis-settings.css'
 
 const settingLabels = {
   minSupport: 'Minimum support',

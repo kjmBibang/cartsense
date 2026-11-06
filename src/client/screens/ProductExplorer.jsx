@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
-import '../style/product-explorer.css'
 
 export default function ProductExplorer() {
   const [department, setDepartment] = useState('')
