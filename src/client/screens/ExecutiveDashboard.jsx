@@ -8,15 +8,16 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString()
 }
 
-function DashboardMessage({ children }) {
+function DashboardMessage({ children, action }) {
   return (
     <div className="chart-card" role="status">
       <p>{children}</p>
+      {action}
     </div>
   )
 }
 
-export default function ExecutiveDashboard() {
+export default function ExecutiveDashboard({ onNavigate }) {
   const [payload, setPayload] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -59,7 +60,6 @@ export default function ExecutiveDashboard() {
       <section className="dashboard-screen" aria-labelledby="dashboard-title">
         <header className="dashboard-header">
           <div>
-            <span className="screen-number">Screen 02</span>
             <h1 id="dashboard-title">Executive Dashboard</h1>
             <p>A quick read of the uploaded grocery orders.</p>
           </div>
@@ -74,7 +74,6 @@ export default function ExecutiveDashboard() {
       <section className="dashboard-screen" aria-labelledby="dashboard-title">
         <header className="dashboard-header">
           <div>
-            <span className="screen-number">Screen 02</span>
             <h1 id="dashboard-title">Executive Dashboard</h1>
             <p>A quick read of the uploaded grocery orders.</p>
           </div>
@@ -89,12 +88,19 @@ export default function ExecutiveDashboard() {
       <section className="dashboard-screen" aria-labelledby="dashboard-title">
         <header className="dashboard-header">
           <div>
-            <span className="screen-number">Screen 02</span>
             <h1 id="dashboard-title">Executive Dashboard</h1>
             <p>A quick read of the uploaded grocery orders.</p>
           </div>
         </header>
-        <DashboardMessage>No dashboard data is available yet.</DashboardMessage>
+        <DashboardMessage
+          action={
+            <button className="dashboard-upload-button" type="button" onClick={() => onNavigate?.('upload')}>
+              Upload data
+            </button>
+          }
+        >
+          No analysis is available yet. Upload a CSV first to generate your executive dashboard.
+        </DashboardMessage>
       </section>
     )
   }
@@ -105,7 +111,6 @@ export default function ExecutiveDashboard() {
     <section className="dashboard-screen" aria-labelledby="dashboard-title">
       <header className="dashboard-header">
         <div>
-          <span className="screen-number">Screen 02</span>
           <h1 id="dashboard-title">Executive Dashboard</h1>
           <p>A quick read of the uploaded grocery orders.</p>
         </div>

@@ -29,23 +29,14 @@ const screens = [
 ]
 
 function App() {
-  const [activeScreen, setActiveScreen] = useState('upload')
+  const [activeScreen, setActiveScreen] = useState('dashboard')
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
-  const Screen = screens.find(([id]) => id === activeScreen)?.[2] ?? UploadDataCheck
+  const activeEntry = screens.find(([id]) => id === activeScreen) ?? screens[0]
+  const Screen = activeEntry[2]
+  const activeTitle = activeEntry[1]
 
   return (
     <div className="app-shell">
-      <button
-        className="menu-trigger"
-        type="button"
-        aria-label="Open screen navigation"
-        aria-expanded={isDrawerOpen}
-        onClick={() => setIsDrawerOpen(true)}
-      >
-        <span />
-        <span />
-        <span />
-      </button>
       {isDrawerOpen && (
         <button
           className="drawer-backdrop"
@@ -56,7 +47,7 @@ function App() {
       )}
       <aside className={isDrawerOpen ? 'screen-nav drawer-open' : 'screen-nav'} aria-label="Screen navigation">
         <div className="drawer-header">
-          <div className="brand">CartSense</div>
+          <div className="brand"><span className="brand-mark" aria-hidden="true">C</span>CartSense</div>
           <button
             className="drawer-close"
             type="button"
@@ -71,6 +62,7 @@ function App() {
           {screens.map(([id, label]) => (
             <button
               className={activeScreen === id ? 'nav-item active' : 'nav-item'}
+              aria-current={activeScreen === id ? 'page' : undefined}
               key={id}
               type="button"
               onClick={() => {
@@ -78,14 +70,36 @@ function App() {
                 setIsDrawerOpen(false)
               }}
             >
+              <span className="nav-item-indicator" aria-hidden="true" />
               {label}
             </button>
           ))}
         </nav>
       </aside>
-      <main className="screen-stage">
-        <Screen />
-      </main>
+      <div className="app-main">
+        <header className="global-header">
+          <button
+            className="menu-trigger"
+            type="button"
+            aria-label="Open screen navigation"
+            aria-expanded={isDrawerOpen}
+            onClick={() => setIsDrawerOpen(true)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          <div className="header-context">
+            <span>Workspace</span>
+            <span className="header-divider" aria-hidden="true">/</span>
+            <strong>{activeTitle}</strong>
+          </div>
+          <span className="header-meta">CartSense Analysis</span>
+        </header>
+        <main className="screen-stage">
+          <Screen onNavigate={setActiveScreen} />
+        </main>
+      </div>
     </div>
   )
 }

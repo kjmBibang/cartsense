@@ -56,7 +56,7 @@ export default function UploadDataCheck() {
 
   return (
     <section className="upload-screen" aria-labelledby="upload-title">
-      <ScreenShell number="01" title="Upload & Data Check" description="Upload a grocery order CSV up to 100 MB to validate and import it into CartSense." />
+      <ScreenShell title="Upload & Data Check" description="Upload a grocery order CSV up to 100 MB to validate and import it into CartSense." />
       <div className="upload-panel">
         <button className="upload-dropzone" type="button" onClick={() => inputRef.current?.click()}>
           <strong>{selectedFile ? selectedFile.name : 'Choose a CSV file'}</strong>
