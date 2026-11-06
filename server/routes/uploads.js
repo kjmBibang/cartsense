@@ -48,7 +48,7 @@ async function processUpload(jobId, file) {
     updateJob(jobId, { progress: 20, message: 'Importing CSV rows' })
     const importResult = await importOrders(file)
     updateJob(jobId, { status: 'analyzing', progress: 60, message: 'Running basket analysis' })
-    const analysis = await publishAnalysisForUpload(file, (status) => updateJob(jobId, status))
+    const analysis = await publishAnalysisForUpload(file, (status) => updateJob(jobId, status), importResult)
     updateJob(jobId, {
       status: 'completed', progress: 100, stage: null, message: 'Upload processing completed',
       result: { ...importResult, analysis },

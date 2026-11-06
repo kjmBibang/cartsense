@@ -29,8 +29,10 @@ router.get('/payload/status', async (_request, response, next) => {
 })
 
 function importId(request) {
-  const value = Number(request.query.importId)
-  return Number.isInteger(value) && value > 0 ? value : null
+  const raw = request.query.importId
+  if (typeof raw !== 'string' || !/^\d+$/.test(raw)) return null
+  const value = Number(raw)
+  return Number.isSafeInteger(value) && value > 0 ? value : null
 }
 
 function requireImportId(request, response) {
@@ -118,15 +120,206 @@ router.get('/departments', async (request, response, next) => {
   const currentImportId = requireImportId(request, response)
   if (!currentImportId) return
   try {
+    const [[importRow]] = await pool.execute('SELECT id FROM imports WHERE id = ?', [currentImportId])
+    if (!importRow) return response.status(404).json({ error: `Import ${currentImportId} was not found.` })
+
     const [rows] = await pool.execute(
-      `SELECT department, COUNT(DISTINCT order_id) AS orders, COUNT(*) AS items,
-              COUNT(DISTINCT product_id) AS products,
-              ROUND(AVG(reordered) * 100, 1) AS reorderRate
-       FROM order_lines WHERE import_id = ?
-       GROUP BY department ORDER BY items DESC`,
+      `WITH aggregated AS (
+         SELECT COALESCE(NULLIF(TRIM(department), ''), 'Unspecified') AS department,
+                COUNT(DISTINCT order_id) AS orders,
+                COUNT(*) AS items,
+                COUNT(DISTINCT product_id) AS products,
+                AVG(reordered) * 100 AS reorderRate
+         FROM order_lines WHERE import_id = ?
+         GROUP BY COALESCE(NULLIF(TRIM(department), ''), 'Unspecified')
+       )
+       SELECT department, orders, items, products, ROUND(reorderRate, 1) AS reorderRate,
+              ROW_NUMBER() OVER (ORDER BY items DESC, orders DESC, department ASC) AS rank
+       FROM aggregated
+       ORDER BY rank`,
       [currentImportId],
     )
-    return response.json(rows)
+    const numeric = (value) => {
+      const number = Number(value ?? 0)
+      return Number.isFinite(number) ? number : 0
+    }
+    return response.json(rows.map((row) => ({
+      department: row.department || 'Unspecified',
+      orders: numeric(row.orders),
+      items: numeric(row.items),
+      products: numeric(row.products),
+      reorderRate: numeric(row.reorderRate),
+      rank: numeric(row.rank),
+    })))
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/behavior', async (request, response, next) => {
+  const currentImportId = requireImportId(request, response)
+  if (!currentImportId) return
+  try {
+    const [[importRow]] = await pool.execute('SELECT id FROM imports WHERE id = ?', [currentImportId])
+    if (!importRow) return response.status(404).json({ error: `Import ${currentImportId} was not found.` })
+
+    const [byDay] = await pool.execute(
+      `SELECT order_dow AS day, COUNT(DISTINCT order_id) AS orders
+       FROM order_lines WHERE import_id = ? AND order_dow BETWEEN 0 AND 6
+       GROUP BY order_dow ORDER BY order_dow`,
+      [currentImportId],
+    )
+    const [byHour] = await pool.execute(
+      `SELECT order_hour_of_day AS hour, COUNT(DISTINCT order_id) AS orders
+       FROM order_lines WHERE import_id = ? AND order_hour_of_day BETWEEN 0 AND 23
+       GROUP BY order_hour_of_day ORDER BY order_hour_of_day`,
+      [currentImportId],
+    )
+    const [heatmapRows] = await pool.execute(
+      `SELECT order_dow AS day, order_hour_of_day AS hour,
+              COUNT(DISTINCT order_id) AS orders
+       FROM order_lines WHERE import_id = ?
+         AND order_dow BETWEEN 0 AND 6 AND order_hour_of_day BETWEEN 0 AND 23
+       GROUP BY order_dow, order_hour_of_day ORDER BY order_dow, order_hour_of_day`,
+      [currentImportId],
+    )
+    const [basketRows] = await pool.execute(
+      `SELECT order_id, COUNT(*) AS size
+       FROM order_lines WHERE import_id = ? GROUP BY order_id ORDER BY size, order_id`,
+      [currentImportId],
+    )
+    const [reorderRows] = await pool.execute(
+      `SELECT reordered, COUNT(*) AS items
+       FROM order_lines WHERE import_id = ? GROUP BY reordered ORDER BY reordered`,
+      [currentImportId],
+    )
+    const [priorOrderRows] = await pool.execute(
+      `SELECT days, COUNT(*) AS orders FROM (
+         SELECT order_id, MIN(days_since_prior_order) AS days
+         FROM order_lines WHERE import_id = ? AND days_since_prior_order IS NOT NULL
+         GROUP BY order_id
+       ) order_intervals
+       GROUP BY days ORDER BY days`,
+      [currentImportId],
+    )
+    const [[missing]] = await pool.execute(
+      `SELECT COUNT(DISTINCT CASE WHEN order_dow IS NULL OR order_dow NOT BETWEEN 0 AND 6 THEN order_id END) AS missingDayOrders,
+              COUNT(DISTINCT CASE WHEN order_hour_of_day IS NULL OR order_hour_of_day NOT BETWEEN 0 AND 23 THEN order_id END) AS missingHourOrders,
+              COUNT(DISTINCT CASE WHEN days_since_prior_order IS NULL THEN order_id END) AS missingPriorOrderOrders
+       FROM order_lines WHERE import_id = ?`,
+      [currentImportId],
+    )
+
+    const numeric = (value) => {
+      const number = Number(value ?? 0)
+      return Number.isFinite(number) ? number : 0
+    }
+    const dayCounts = new Map(byDay.map((row) => [numeric(row.day), numeric(row.orders)]))
+    const hourCounts = new Map(byHour.map((row) => [numeric(row.hour), numeric(row.orders)]))
+    const heatmapCounts = new Map(heatmapRows.map((row) => [`${numeric(row.day)}:${numeric(row.hour)}`, numeric(row.orders)]))
+    const sizes = basketRows.map((row) => numeric(row.size))
+    const sizeCounts = new Map()
+    for (const size of sizes) sizeCounts.set(size, (sizeCounts.get(size) || 0) + 1)
+    const middle = Math.floor(sizes.length / 2)
+    const median = sizes.length
+      ? sizes.length % 2 ? sizes[middle] : (sizes[middle - 1] + sizes[middle]) / 2
+      : 0
+
+    return response.json({
+      importId: currentImportId,
+      ordersByDay: Array.from({ length: 7 }, (_value, day) => ({ day, orders: dayCounts.get(day) ?? 0 })),
+      ordersByHour: Array.from({ length: 24 }, (_value, hour) => ({ hour, orders: hourCounts.get(hour) ?? 0 })),
+      dayHour: Array.from({ length: 7 * 24 }, (_value, index) => {
+        const day = Math.floor(index / 24)
+        const hour = index % 24
+        return { day, hour, orders: heatmapCounts.get(`${day}:${hour}`) ?? 0 }
+      }),
+      basketSizes: {
+        min: sizes.length ? sizes[0] : 0,
+        max: sizes.length ? sizes[sizes.length - 1] : 0,
+        median: Number(median.toFixed(2)),
+        average: sizes.length ? Number((sizes.reduce((sum, size) => sum + size, 0) / sizes.length).toFixed(2)) : 0,
+        distribution: [...sizeCounts.entries()].sort(([a], [b]) => a - b).map(([size, orders]) => ({ size, orders })),
+      },
+      reorderItems: [0, 1].map((reordered) => ({
+        reordered,
+        items: numeric(reorderRows.find((row) => numeric(row.reordered) === reordered)?.items),
+      })),
+      daysSincePriorOrder: priorOrderRows.map((row) => ({
+        days: numeric(row.days),
+        orders: numeric(row.orders),
+      })),
+      missing: {
+        dayOrders: numeric(missing.missingDayOrders),
+        hourOrders: numeric(missing.missingHourOrders),
+        priorOrderIntervalOrders: numeric(missing.missingPriorOrderOrders),
+      },
+    })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/reliability', async (request, response, next) => {
+  const currentImportId = requireImportId(request, response)
+  if (!currentImportId) return
+  try {
+    const [[importRow]] = await pool.execute(
+      `SELECT id, original_filename AS source, status, total_rows AS totalRows,
+              imported_rows AS validRows, skipped_rows AS skippedRows,
+              validation_errors AS invalidRows, created_at AS createdAt
+       FROM imports WHERE id = ?`,
+      [currentImportId],
+    )
+    if (!importRow) return response.status(404).json({ error: `Import ${currentImportId} was not found.` })
+
+    let invalidRows = importRow.invalidRows || []
+    if (typeof invalidRows === 'string') {
+      try { invalidRows = JSON.parse(invalidRows) } catch { invalidRows = [] }
+    }
+    if (!Array.isArray(invalidRows)) invalidRows = []
+
+    let published = null
+    try {
+      const payload = await readAnalysisPayload()
+      if (Number(payload.importId) === currentImportId) published = payload
+    } catch (error) {
+      if (error.statusCode !== 404 && error.statusCode !== 503) throw error
+    }
+
+    const numeric = (value) => {
+      const number = Number(value ?? 0)
+      return Number.isFinite(number) ? number : 0
+    }
+    const dataQuality = published?.dataQuality || {}
+    const missingValues = dataQuality.missingValues && typeof dataQuality.missingValues === 'object'
+      ? dataQuality.missingValues
+      : {}
+    const warnings = Array.isArray(dataQuality.warnings) ? [...dataQuality.warnings] : []
+    const insufficientData = dataQuality.insufficientData ?? numeric(importRow.validRows) < 2
+    if (!published) warnings.push('Analysis payload metadata is not available for this import.')
+    if (numeric(importRow.skippedRows) > 0 && !warnings.some((warning) => warning.includes('invalid row'))) {
+      warnings.push(`${numeric(importRow.skippedRows)} invalid row(s) were skipped during import.`)
+    }
+    if (insufficientData && !warnings.some((warning) => warning.includes('Insufficient'))) {
+      warnings.push('Insufficient imported rows for meaningful association analysis.')
+    }
+
+    return response.json({
+      importId: currentImportId,
+      status: importRow.status,
+      source: importRow.source,
+      generatedAt: published?.generatedAt || importRow.createdAt,
+      totalRows: numeric(importRow.totalRows),
+      validRows: numeric(importRow.validRows),
+      skippedRows: numeric(importRow.skippedRows),
+      invalidRows,
+      missingValues,
+      parameters: published?.parameters || null,
+      warnings,
+      insufficientData: Boolean(insufficientData),
+      analysis: published?.reliability || null,
+    })
   } catch (error) {
     return next(error)
   }
