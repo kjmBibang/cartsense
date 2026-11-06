@@ -34,6 +34,19 @@ const OBJECT_SECTIONS = [
   'exports',
 ]
 
+const OPTIONAL_ARRAYS = [
+  ['dashboard', 'ordersByDay'], ['dashboard', 'ordersByHour'], ['dashboard', 'topProducts'],
+  ['departments', 'rows'], ['departments', 'coOccurrence'],
+  ['behavior', 'heatmap'], ['behavior', 'reorders'], ['behavior', 'daysSincePriorOrder'], ['behavior', 'basketSizes'],
+  ['patterns', 'rules'], ['bundles', 'rules'], ['network', 'nodes'], ['network', 'edges'],
+  ['howItWorks', 'passes'], ['exports', 'products'], ['exports', 'bundles'],
+]
+
+const OPTIONAL_OBJECTS = [
+  ['summary', 'basketSize'], ['howItWorks', 'trace'],
+  ['reliability', 'baseline'], ['reliability', 'model'], ['dataQuality', 'missingValues'],
+]
+
 function invalidPayload(message) {
   const error = new Error(message)
   error.statusCode = 400

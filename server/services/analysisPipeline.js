@@ -67,6 +67,40 @@ export async function publishAnalysisForUpload(file, onStatus = () => {}) {
     } catch (error) {
       throw pipelineError(`Python analysis produced an invalid payload: ${error.message}`, error, 'payload_validation')
     }
+    if (importResult) {
+      const pythonQuality = payload.dataQuality || {}
+      if (pythonQuality.source !== inputPath) {
+        throw pipelineError('Generated analysis does not identify the current upload as its source.', null, 'payload_validation')
+      }
+      if (pythonQuality.totalRows !== importResult.totalRows || pythonQuality.validRows !== importResult.importedRows) {
+        throw pipelineError('Generated analysis row counts do not match the current upload.', null, 'payload_validation')
+      }
+      const warnings = []
+      if (importResult.skippedRows > 0) warnings.push(`${importResult.skippedRows} invalid row(s) were skipped during import.`)
+      if (importResult.importedRows < 2) warnings.push('Insufficient imported rows for meaningful association analysis.')
+      if (Object.keys(pythonQuality.missingValues || {}).length) warnings.push('The source contains missing optional values; see missingValues for counts.')
+      payload.importId = importResult.importId
+      payload.source = file.originalname || null
+      payload.dataQuality = {
+        ...pythonQuality,
+        source: file.originalname || null,
+        sourceSha256: createHash('sha256').update(file.buffer).digest('hex'),
+        totalRows: importResult.totalRows,
+        validRows: importResult.importedRows,
+        invalidRows: importResult.skippedRows,
+        skippedRows: importResult.skippedRows,
+        validationErrors: importResult.validationErrors,
+        analysisValidationErrors: pythonQuality.validationErrors || [],
+        warnings,
+        insufficientData: importResult.importedRows < 2,
+      }
+      payload.reliability = {
+        ...payload.reliability,
+        warnings,
+        insufficientData: importResult.importedRows < 2 || payload.reliability?.status === 'insufficient_rules',
+        dataQuality: payload.dataQuality,
+      }
+    }
     try {
       onStatus({ status: 'publishing', progress: 90, stage: 'payload_publication', message: 'Publishing analysis payload' })
       return await saveAnalysisPayload(payload)

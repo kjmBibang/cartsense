@@ -73,6 +73,16 @@ router.get('/orders/:jobId', (request, response) => {
   const job = jobs.get(request.params.jobId)
   if (!job) return response.status(404).json({ error: 'Upload job was not found.' })
   const { result, ...status } = job
+  if (job.status === 'failed') {
+    return response.status(job.errorStatus || 422).json({
+      error: job.message,
+      jobId: job.jobId,
+      status: job.status,
+      progress: job.progress,
+      stage: job.stage,
+      updatedAt: job.updatedAt,
+    })
+  }
   return response.json(result ? { ...status, result } : status)
 })
 
