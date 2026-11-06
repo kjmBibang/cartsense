@@ -42,23 +42,39 @@ function requireImportId(request, response) {
   return value
 }
 
+function queryInteger(value, fallback, minimum, maximum, name, response) {
+  if (value === undefined) return fallback
+  const parsed = typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    response.status(400).json({ error: `${name} must be an integer between ${minimum} and ${maximum}.` })
+    return null
+  }
+  return parsed
+}
+
 router.get('/summary', async (request, response, next) => {
   const currentImportId = requireImportId(request, response)
   if (!currentImportId) return
   try {
-    const [rows] = await pool.execute(
+    const [[metadata]] = await pool.execute(
+      `SELECT original_filename AS source, created_at AS generatedAt
+       FROM imports WHERE id = ?`,
+      [currentImportId],
+    )
+    if (!metadata) return response.status(404).json({ error: `Import ${currentImportId} was not found.` })
+
+    const [[metrics]] = await pool.execute(
       `SELECT COUNT(DISTINCT order_id) AS orders,
               COUNT(DISTINCT user_id) AS customers,
               COUNT(*) AS items,
               COUNT(DISTINCT product_id) AS products,
-              ROUND(AVG(order_size), 2) AS averageBasketSize,
-              ROUND(AVG(reordered) * 100, 1) AS reorderRate
-       FROM (
-         SELECT order_id, user_id, COUNT(*) AS order_size,
-                AVG(reordered) AS reordered
-         FROM order_lines WHERE import_id = ? GROUP BY order_id, user_id
-       ) baskets`,
-      [currentImportId],
+              (SELECT AVG(order_size) FROM (
+                SELECT order_id, COUNT(*) AS order_size
+                FROM order_lines WHERE import_id = ? GROUP BY order_id
+              ) baskets) AS averageBasketSize,
+              AVG(reordered) * 100 AS reorderRate
+       FROM order_lines WHERE import_id = ?`,
+      [currentImportId, currentImportId],
     )
     const [byDay] = await pool.execute(
       `SELECT order_dow AS day, COUNT(DISTINCT order_id) AS orders
@@ -119,8 +135,19 @@ router.get('/departments', async (request, response, next) => {
 router.get('/bundles', async (request, response, next) => {
   const currentImportId = requireImportId(request, response)
   if (!currentImportId) return
-  const minimumSupport = Math.max(Number(request.query.minSupport) || 0.05, 0)
+  const minimumSupport = request.query.minSupport === undefined ? 0.05 : Number(request.query.minSupport)
+  if (typeof request.query.minSupport !== 'undefined'
+      && (typeof request.query.minSupport !== 'string' || !request.query.minSupport.trim()
+        || !/^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(request.query.minSupport)
+        || !Number.isFinite(minimumSupport) || minimumSupport < 0 || minimumSupport > 1)) {
+    return response.status(400).json({ error: 'minSupport must be a number between 0 and 1.' })
+  }
+  const limit = queryInteger(request.query.limit, 100, 1, 200, 'limit', response)
+  if (limit === null) return
   try {
+    const [[importRow]] = await pool.execute('SELECT id FROM imports WHERE id = ?', [currentImportId])
+    if (!importRow) return response.status(404).json({ error: `Import ${currentImportId} was not found.` })
+
     const [rows] = await pool.execute(
       `WITH order_products AS (
          SELECT DISTINCT order_id, product_id, product_name
@@ -131,13 +158,14 @@ router.get('/bundles', async (request, response, next) => {
          SELECT product_id, product_name, COUNT(*) AS productOrders
          FROM order_products GROUP BY product_id, product_name
        )
-       SELECT a.product_id AS productAId, a.product_name AS productA,
+         SELECT a.product_id AS productAId, a.product_name AS productA,
               b.product_id AS productBId, b.product_name AS productB,
-              COUNT(*) / totals.totalOrders AS support,
-              COUNT(*) / a_counts.productOrders AS confidenceA,
-              COUNT(*) / b_counts.productOrders AS confidenceB,
-              (COUNT(*) / totals.totalOrders) /
-                ((a_counts.productOrders / totals.totalOrders) * (b_counts.productOrders / totals.totalOrders)) AS lift
+              COUNT(*) / NULLIF(totals.totalOrders, 0) AS support,
+              COUNT(*) / NULLIF(a_counts.productOrders, 0) AS confidenceA,
+              COUNT(*) / NULLIF(b_counts.productOrders, 0) AS confidenceB,
+              (COUNT(*) / NULLIF(totals.totalOrders, 0)) /
+                NULLIF((a_counts.productOrders / NULLIF(totals.totalOrders, 0)) *
+                       (b_counts.productOrders / NULLIF(totals.totalOrders, 0)), 0) AS lift
        FROM order_products a
        JOIN order_products b ON a.order_id = b.order_id AND a.product_id < b.product_id
        CROSS JOIN totals
@@ -145,12 +173,41 @@ router.get('/bundles', async (request, response, next) => {
        JOIN product_counts b_counts ON b.product_id = b_counts.product_id
        GROUP BY a.product_id, a.product_name, b.product_id, b.product_name,
                 totals.totalOrders, a_counts.productOrders, b_counts.productOrders
-       HAVING support >= ?
-       ORDER BY lift DESC, support DESC
-       LIMIT 100`,
-      [currentImportId, currentImportId, minimumSupport],
+       HAVING support >= ? AND support IS NOT NULL AND confidenceA IS NOT NULL
+              AND confidenceB IS NOT NULL AND lift IS NOT NULL
+       ORDER BY lift DESC, support DESC, productAId ASC, productBId ASC
+       LIMIT ?`,
+      [currentImportId, currentImportId, minimumSupport, limit],
     )
-    return response.json(rows)
+    const numeric = (value) => {
+      const result = Number(value)
+      return Number.isFinite(result) ? result : null
+    }
+    const validRows = rows.filter((row) => [row.productAId, row.productBId,
+      row.support, row.confidenceA, row.confidenceB, row.lift]
+      .every((value) => numeric(value) !== null))
+    const rankedRows = validRows.map((row, index) => {
+      const productAId = numeric(row.productAId)
+      const productBId = numeric(row.productBId)
+      return {
+        rank: index + 1,
+        productAId,
+        productA: row.productA || 'Unknown product',
+        productBId,
+        productB: row.productB || 'Unknown product',
+        support: numeric(row.support),
+        confidenceA: numeric(row.confidenceA),
+        confidenceB: numeric(row.confidenceB),
+        lift: numeric(row.lift),
+      }
+    })
+    const visualizationRows = rankedRows.map((row) => ({
+      ...row,
+      source: row.productAId,
+      target: row.productBId,
+    }))
+    response.set({ 'X-Min-Support': String(minimumSupport), 'X-Result-Limit': String(limit) })
+    return response.json(visualizationRows)
   } catch (error) {
     return next(error)
   }
