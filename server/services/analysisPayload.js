@@ -77,24 +77,46 @@ function receipt(payload, savedAt) {
     savedAt,
     source: payload.source || null,
     summary: payload.summary || null,
+    importId: payload.importId ?? null,
+    dataQuality: payload.dataQuality || null,
+    parameters: payload.parameters || null,
+    reliability: payload.reliability || null,
     sections: REQUIRED_SECTIONS,
   }
 }
 
 export async function saveAnalysisPayload(payload) {
-  validateAnalysisPayload(payload)
+  const completePayload = validateAnalysisPayload(payload)
   const destination = payloadPath()
-  const temporary = `${destination}.${process.pid}.tmp`
+  const temporary = `${destination}.${process.pid}.${randomUUID()}.tmp`
   await mkdir(path.dirname(destination), { recursive: true })
-  await writeFile(temporary, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-  await rename(temporary, destination)
-  return receipt(payload, new Date().toISOString())
+  try {
+    await writeFile(temporary, `${JSON.stringify(completePayload, null, 2)}\n`, 'utf8')
+    await rename(temporary, destination)
+  } finally {
+    await rm(temporary, { force: true })
+  }
+  return receipt(completePayload, new Date().toISOString())
 }
 
 export async function readAnalysisPayload() {
   try {
-    const payload = JSON.parse(await readFile(payloadPath(), 'utf8'))
-    return validateAnalysisPayload(payload)
+    let payload
+    try {
+      payload = JSON.parse(await readFile(payloadPath(), 'utf8'))
+    } catch (error) {
+      if (error.code === 'ENOENT') throw error
+      const invalid = new Error(`The saved analysis payload is malformed and cannot be served: ${error.message}`)
+      invalid.statusCode = 503
+      throw invalid
+    }
+    try {
+      return validateAnalysisPayload(payload)
+    } catch (error) {
+      error.statusCode = 503
+      error.message = `The saved analysis payload is incomplete or invalid: ${error.message}`
+      throw error
+    }
   } catch (error) {
     if (error.code === 'ENOENT') {
       const missing = new Error('No analysis payload has been published yet.')
