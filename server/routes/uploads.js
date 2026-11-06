@@ -23,11 +23,13 @@ function updateJob(jobId, update) {
 }
 
 function failJob(jobId, error) {
+  const statusCode = error.statusCode === 503 ? 503 : error.statusCode === 502 ? 502 : 422
   updateJob(jobId, {
     status: 'failed',
     progress: 100,
     stage: error.stage || 'database_import',
     message: error.message || 'Upload processing failed.',
+    errorStatus: statusCode,
   })
 }
 

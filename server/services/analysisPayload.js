@@ -1,5 +1,6 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { randomUUID } from 'node:crypto'
 
 const REQUIRED_SECTIONS = [
   'schemaVersion',
@@ -74,13 +75,55 @@ export function validateAnalysisPayload(payload) {
   if (!Array.isArray(payload.products)) {
     throw invalidPayload('Analysis payload section "products" must be an array.')
   }
+  if (payload.products.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
+    throw invalidPayload('Analysis payload section "products" must contain JSON objects.')
+  }
   for (const section of OBJECT_SECTIONS) {
     const value = payload[section]
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
       throw invalidPayload(`Analysis payload section "${section}" must be an object.`)
     }
   }
-  return payload
+
+  const normalized = structuredClone(payload)
+  for (const [section, key] of OPTIONAL_ARRAYS) {
+    const value = normalized[section][key]
+    if (value === undefined || value === null) normalized[section][key] = []
+    else if (!Array.isArray(value)) throw invalidPayload(`Analysis payload section "${section}.${key}" must be an array.`)
+    else if (value.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
+      throw invalidPayload(`Analysis payload section "${section}.${key}" must contain JSON objects.`)
+    }
+  }
+  for (const [section, key] of OPTIONAL_OBJECTS) {
+    const value = normalized[section][key]
+    if (value === undefined || value === null) normalized[section][key] = {}
+    else if (typeof value !== 'object' || Array.isArray(value)) {
+      throw invalidPayload(`Analysis payload section "${section}.${key}" must be an object.`)
+    }
+  }
+  if (normalized.summary.basketSize.distribution === undefined || normalized.summary.basketSize.distribution === null) {
+    normalized.summary.basketSize.distribution = []
+  } else if (!Array.isArray(normalized.summary.basketSize.distribution)) {
+    throw invalidPayload('Analysis payload section "summary.basketSize.distribution" must be an array.')
+  } else if (normalized.summary.basketSize.distribution.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
+    throw invalidPayload('Analysis payload section "summary.basketSize.distribution" must contain JSON objects.')
+  }
+
+  const inspectFiniteNumbers = (value, location = 'payload') => {
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      throw invalidPayload(`Analysis payload contains a non-finite number at "${location}".`)
+    }
+    if (typeof value === 'bigint' || typeof value === 'function' || typeof value === 'symbol') {
+      throw invalidPayload(`Analysis payload contains a value that cannot be represented in JSON at "${location}".`)
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => inspectFiniteNumbers(item, `${location}[${index}]`))
+    } else if (value && typeof value === 'object') {
+      for (const [key, item] of Object.entries(value)) inspectFiniteNumbers(item, `${location}.${key}`)
+    }
+  }
+  inspectFiniteNumbers(normalized)
+  return normalized
 }
 
 function receipt(payload, savedAt) {

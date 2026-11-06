@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { saveAnalysisPayload } from './analysisPayload.js'
 
@@ -52,7 +53,7 @@ function runPythonAnalysis(inputPath, outputPath) {
   })
 }
 
-export async function publishAnalysisForUpload(file, onStatus = () => {}) {
+export async function publishAnalysisForUpload(file, onStatus = () => {}, importResult = null) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'cartsense-analysis-'))
   const inputPath = path.join(directory, path.basename(file.originalname || 'orders.csv'))
   const outputPath = path.join(directory, 'analysis-payload.json')
