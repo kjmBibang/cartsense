@@ -28,7 +28,7 @@ function validateRow(row, rowNumber) {
   const errors = []
   const requiredNumeric = ['order_id', 'user_id', 'product_id']
   for (const column of requiredNumeric) {
-    if (!Number.isInteger(Number(row[column]))) errors.push(`${column} must be an integer`)
+    if (!row[column]?.trim() || !Number.isInteger(Number(row[column]))) errors.push(`${column} must be an integer`)
   }
   if (!row.product_name?.trim()) errors.push('product_name is required')
   if (!row.department?.trim()) errors.push('department is required')

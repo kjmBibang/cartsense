@@ -23,11 +23,13 @@ function updateJob(jobId, update) {
 }
 
 function failJob(jobId, error) {
+  const statusCode = error.statusCode === 503 ? 503 : error.statusCode === 502 ? 502 : 422
   updateJob(jobId, {
     status: 'failed',
     progress: 100,
     stage: error.stage || 'database_import',
     message: error.message || 'Upload processing failed.',
+    errorStatus: statusCode,
   })
 }
 
@@ -48,7 +50,7 @@ async function processUpload(jobId, file) {
     updateJob(jobId, { progress: 20, message: 'Importing CSV rows' })
     const importResult = await importOrders(file)
     updateJob(jobId, { status: 'analyzing', progress: 60, message: 'Running basket analysis' })
-    const analysis = await publishAnalysisForUpload(file, (status) => updateJob(jobId, status))
+    const analysis = await publishAnalysisForUpload(file, (status) => updateJob(jobId, status), importResult)
     updateJob(jobId, {
       status: 'completed', progress: 100, stage: null, message: 'Upload processing completed',
       result: { ...importResult, analysis },
@@ -73,6 +75,16 @@ router.get('/orders/:jobId', (request, response) => {
   const job = jobs.get(request.params.jobId)
   if (!job) return response.status(404).json({ error: 'Upload job was not found.' })
   const { result, ...status } = job
+  if (job.status === 'failed') {
+    return response.status(job.errorStatus || 422).json({
+      error: job.message,
+      jobId: job.jobId,
+      status: job.status,
+      progress: job.progress,
+      stage: job.stage,
+      updatedAt: job.updatedAt,
+    })
+  }
   return response.json(result ? { ...status, result } : status)
 })
 
