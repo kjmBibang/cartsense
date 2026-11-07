@@ -7,6 +7,13 @@ import analysisRoutes from './routes/analysis.js'
 
 const app = express()
 const port = Number(process.env.PORT || 3001)
+const maxUploadSizeMb = Number(process.env.MAX_UPLOAD_SIZE_MB || 100)
+
+function databaseSetupError() {
+  const error = new Error('CartSense database is not initialized. Run server/sql/schema.sql in MySQL or phpMyAdmin, then restart the API.')
+  error.statusCode = 503
+  return error
+}
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }))
 app.use(express.json({ limit: process.env.ANALYSIS_PAYLOAD_MAX_SIZE || '25mb' }))
@@ -16,6 +23,13 @@ app.get('/api/health', async (_request, response) => {
     await checkDatabase()
     response.json({ status: 'ok', database: 'connected' })
   } catch (error) {
+    if (error.code === 'ER_BAD_DB_ERROR') {
+      return response.status(503).json({
+        status: 'error',
+        database: 'not_initialized',
+        message: databaseSetupError().message,
+      })
+    }
     response.status(503).json({ status: 'error', database: 'unavailable', message: error.message })
   }
 })
@@ -25,17 +39,20 @@ app.use('/api/analysis', analysisRoutes)
 
 app.use((error, _request, response, next) => {
   void next
+  if (error.code === 'ER_BAD_DB_ERROR') {
+    error = databaseSetupError()
+  }
   if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
     return response.status(400).json({ error: 'Request body must contain valid JSON.' })
   }
   if (error.statusCode) {
-    return response.status(error.statusCode).json({ error: error.message })
+    return response.status(error.statusCode).json({ error: error.message, ...(error.stage ? { stage: error.stage } : {}) })
   }
   if (error.code === 'LIMIT_FILE_SIZE') {
-    return response.status(413).json({ error: 'The uploaded file is too large.' })
+    return response.status(413).json({ error: `The uploaded file is too large. CSV uploads are limited to ${maxUploadSizeMb} MB.`, stage: 'csv_parsing' })
   }
   if (error.message === 'Only CSV files are supported.') {
-    return response.status(415).json({ error: error.message })
+    return response.status(415).json({ error: error.message, stage: 'csv_parsing' })
   }
   console.error(error)
   return response.status(500).json({ error: 'An unexpected server error occurred.' })

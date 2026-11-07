@@ -5,7 +5,7 @@ CartSense is a React/Vite client with an Express API for importing grocery order
 ## Local setup with XAMPP
 
 1. Start **MySQL** in the XAMPP Control Panel. The default configuration used here is `localhost:3306`, user `root`, with an empty password.
-2. In phpMyAdmin, open the SQL tab and run [`server/sql/schema.sql`](server/sql/schema.sql) to create the `cartsense` database and tables.
+2. In phpMyAdmin, open the SQL tab and run [`server/sql/schema.sql`](server/sql/schema.sql) to create the `cartsense` database and tables. The API cannot import uploads until this step is complete.
 3. Copy `.env.example` to `.env`. Change `DB_PORT` or `DB_PASSWORD` if your XAMPP installation differs.
 4. Install dependencies with `npm install`.
 5. Start both applications with `npm run dev:full`.
@@ -17,7 +17,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 ## API
 
 - `GET /api/health` checks Express and MySQL.
-- `POST /api/uploads/orders` accepts a CSV in the multipart `file` field. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally.
+- `POST /api/uploads/orders` accepts a CSV in the multipart `file` field and returns a `jobId` with status `202`. Poll `GET /api/uploads/orders/:jobId` until it returns `completed` or `failed`. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally. Uploads are limited to 100 MB by default; change `MAX_UPLOAD_SIZE_MB` in `.env` for larger POS exports.
 - `GET /api/analysis/summary?importId=1` returns order, customer, product, basket, reorder, day, and hour metrics.
 - `GET /api/analysis/products?importId=1` returns product order counts and reorder rates.
 - `GET /api/analysis/departments?importId=1` returns department totals.
@@ -26,7 +26,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 - `GET /api/analysis/payload` returns the latest stored Python payload for the frontend.
 - `GET /api/analysis/payload/status` reports whether a payload is available without returning the full artifact.
 
-The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen reports that row while importing the valid rows.
+The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen polls the processing job, reports that row after completion, and refreshes every analysis screen from the generated Python payload.
 
 ## Python analysis payload
 
@@ -62,7 +62,9 @@ Copy-Item .env.example .env -ErrorAction SilentlyContinue
 npm run dev:full
 ```
 
-The Python command is the producer. Express does not start Python automatically. To publish a payload through the backend instead of sharing the file directly, use a second PowerShell terminal while Express is running:
+The Python command can also be run manually. When a CSV is uploaded through the frontend, Express runs the same Python package automatically, validates the generated payload, and publishes it before marking the upload job complete. Ensure the Python package and its dependencies are installed in the environment used by the API. Set `PYTHON_EXECUTABLE` if the API should use a specific interpreter.
+
+To publish a manually generated payload through the backend instead of sharing the file directly, use a second PowerShell terminal while Express is running:
 
 ```powershell
 $payload = Get-Content artifacts/analysis-payload.json -Raw
@@ -79,6 +81,8 @@ Invoke-RestMethod http://localhost:3001/api/analysis/payload | ConvertTo-Json -D
 The frontend reads the payload through Express, never from the file system. The default local storage path is `artifacts/analysis-payload.json`; it is ignored by Git and should not be committed. Change `ANALYSIS_PAYLOAD_PATH` in `.env` when a teammate needs a different local location.
 
 The existing CSV upload and MySQL analysis routes still require MySQL and the schema from [`server/sql/schema.sql`](server/sql/schema.sql). The payload handoff routes do not require a database connection, so frontend and Python integration work can proceed independently.
+
+POS exports may contain the same product more than once in an order, so CartSense stores each uploaded order line and does not enforce a unique `(import_id, order_id, product_id)` constraint. The upload service automatically removes that legacy constraint from databases created with an older schema. You can also run [`server/sql/migrations/002_allow_repeated_products.sql`](server/sql/migrations/002_allow_repeated_products.sql) manually in phpMyAdmin.
 
 ## Verification
 
