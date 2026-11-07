@@ -1,1 +1,54 @@
-.screen-placeholder[data-screen="association-network"] {}
+.network-visual-wrap {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.network-visual {
+  display: block;
+  width: 100%;
+  max-height: 580px;
+  overflow: visible;
+  border: 1px solid #e2e8f0;
+  border-radius: var(--radius-card);
+  background:
+    radial-gradient(circle at center, #fff 0, #fff 42%, #f8fafc 100%);
+}
+
+.network-node-label {
+  fill: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-linejoin: round;
+  stroke-width: 4px;
+}
+
+.network-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.network-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334155;
+  font-size: 12px;
+}
+
+.network-legend li span {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+@media (max-width: 600px) {
+  .network-node-label {
+    font-size: 11px;
+  }
+}
