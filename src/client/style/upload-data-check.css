@@ -6,15 +6,53 @@
   width: 100%;
 }
 
-.upload-screen > .screen-placeholder,
+.upload-heading,
 .upload-screen > .upload-panel {
   grid-column: 1;
   width: 100%;
   min-width: 0;
 }
 
-.upload-screen .screen-placeholder {
+.upload-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
   padding: 24px 26px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.upload-heading h1 {
+  margin: 0 0 8px;
+  color: var(--color-text);
+  font-size: 28px;
+  letter-spacing: -0.035em;
+}
+
+.upload-heading p {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.upload-current-status {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  color: #475569;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-current-status.is-ready {
+  border-color: #bbf7d0;
+  color: #166534;
+  background: #f0fdf4;
 }
 
 .upload-panel {
@@ -42,6 +80,12 @@
   transition: border-color 140ms ease, background 140ms ease;
 }
 
+.upload-dropzone:focus-within,
+.upload-dropzone:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
 .upload-dropzone:hover {
   border-color: var(--color-primary);
   background: #f1f5f9;
@@ -57,8 +101,20 @@
   font-size: 14px;
 }
 
+.upload-dropzone .upload-file-hint {
+  max-width: 440px;
+  margin-top: 5px;
+  font-size: 12px;
+}
+
 .upload-input {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
 }
 
 .upload-action {
@@ -124,6 +180,18 @@
   background: var(--color-surface);
 }
 
+.upload-result h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.upload-result-summary {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .upload-stats {
   display: flex;
   flex-wrap: wrap;
@@ -145,6 +213,16 @@
   color: var(--color-text);
 }
 
+.upload-validation-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-left: 20px;
+  color: #7f1d1d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 @media (max-width: 900px) {
   .upload-screen {
     grid-column: 2 / span 10;
@@ -156,8 +234,13 @@
     grid-column: span 12;
   }
 
-  .upload-screen .screen-placeholder {
+  .upload-heading {
+    flex-direction: column;
     padding: 20px;
+  }
+
+  .upload-heading h1 {
+    font-size: 25px;
   }
 
   .upload-panel {
