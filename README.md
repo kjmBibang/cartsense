@@ -31,6 +31,8 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 - `GET /api/analysis/payload` returns the latest stored Python payload for the frontend.
 - `GET /api/analysis/payload/status` reports whether a payload is available without returning the full artifact.
 
+The Python analysis uses a reproducible order-level recommendation pipeline: validation, preprocessing, user-disjoint split, Apriori mining, top-k recommendation with popularity fallback, and holdout evaluation. Its default minimum confidence is `0.2`. Reliability metrics include rule coverage, Hit Rate@K, Recall@K, MRR, and a popularity baseline; these are recommendation metrics, not supervised classification accuracy.
+
 The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen polls the processing job, reports that row after completion, retains every completed CSV in MySQL-backed upload history, and lets you select and filter stored imports. Identical file contents are recognized by SHA-256 and are not imported twice.
 
 ## Python analysis payload
@@ -43,6 +45,8 @@ python -m cartsense_analysis --input public/mock-data/cart-sense-orders.csv --ou
 ```
 
 The Python package uses one basket per order for Apriori rules, bundles, and network edges. The notebook remains the exploratory reference; the generated payload is the integration boundary for later Express wiring.
+
+The clean reproducible evaluation notebook is [`notebooks/CartSense_Apriori_Evaluation.ipynb`](notebooks/CartSense_Apriori_Evaluation.ipynb). It runs against [`public/dataset/modeldataset.csv`](public/dataset/modeldataset.csv) and contains the same pipeline stages as the package: validation, preprocessing, user-disjoint evaluation split, order-level baskets, Apriori mining, recommendations, and performance evaluation. The original owner-provided notebook is preserved at [`notebooks/AprioriProduct_WithEvaluation.ipynb`](notebooks/AprioriProduct_WithEvaluation.ipynb).
 
 ## After pulling from `development`
 

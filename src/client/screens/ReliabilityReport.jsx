@@ -24,6 +24,9 @@ export default function ReliabilityReport({ onNavigate }) {
           .map(([field, count]) => ({ field, count }))
         const holdoutScore = reliability.model?.hitRateAtK
         const baselineScore = reliability.baseline?.hitRateAtK
+        const evaluation = reliability.evaluation || {}
+        const modelAt10 = reliability.model?.hitRateAt10
+        const baselineAt10 = reliability.baseline?.hitRateAt10
         const hasWarnings = (Number(skippedRows) || 0) > 0 || (missingCount || 0) > 0 || validationErrors.length > 0
 
         return <>
@@ -33,6 +36,7 @@ export default function ReliabilityReport({ onNavigate }) {
             <MetricCard label="Skipped rows" value={skippedRows?.toLocaleString() ?? '—'} />
             <MetricCard label="Missing-value count" value={missingCount?.toLocaleString() ?? '—'} />
             <MetricCard label="Rules generated" value={reliability.ruleCount?.toLocaleString() ?? payload.patterns?.rules?.length?.toLocaleString() ?? '—'} />
+            <MetricCard label="Recommendation Hit Rate@10" description="Share of eligible test orders where the hidden product appeared in the top 10 recommendations." value={modelAt10 == null ? '—' : `${Number(modelAt10).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`} />
           </div>
           {hasWarnings && <div className="analysis-warning" role="status">
             <strong>Use caution when interpreting results.</strong>
@@ -50,6 +54,10 @@ export default function ReliabilityReport({ onNavigate }) {
                 <div><dt>Test users</dt><dd>{reliability.testUsers?.toLocaleString() ?? '—'}</dd></div>
                 <div><dt>Association-rule hit rate</dt><dd>{holdoutScore == null ? 'Not calculated' : `${(Number(holdoutScore) * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`}</dd></div>
                 <div><dt>Popularity baseline hit rate</dt><dd>{baselineScore == null ? 'Not calculated' : `${(Number(baselineScore) * 100).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`}</dd></div>
+                <div><dt>Rules Hit Rate@10</dt><dd>{modelAt10 == null ? 'Not calculated' : `${Number(modelAt10).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`}</dd></div>
+                <div><dt>Popularity Hit Rate@10</dt><dd>{baselineAt10 == null ? 'Not calculated' : `${Number(baselineAt10).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`}</dd></div>
+                <div><dt>Recommendation MRR@10</dt><dd>{reliability.model?.mrrAt10 == null ? 'Not calculated' : Number(reliability.model.mrrAt10).toLocaleString(undefined, { maximumFractionDigits: 4 })}</dd></div>
+                <div><dt>Evaluation orders</dt><dd>{evaluation.ordersEvaluated?.toLocaleString() ?? 'Not calculated'}</dd></div>
               </dl>
             </AnalysisPanel>
           </div>

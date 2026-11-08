@@ -15,6 +15,7 @@ from mlxtend.preprocessing import TransactionEncoder
 
 REQUIRED_COLUMNS = {"order_id", "user_id", "product_id", "product_name", "department"}
 NUMERIC_COLUMNS = ["order_id", "user_id", "order_number", "order_dow", "order_hour_of_day", "days_since_prior_order", "product_id", "add_to_cart_order", "reordered", "department_id"]
+DEFAULT_KS = (1, 3, 5, 10)
 
 
 def load_orders(path: str | Path) -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -71,8 +72,20 @@ def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:
     return frame.to_dict(orient="records")
 
 
-def _baskets(frame: pd.DataFrame) -> dict[int, set[int]]:
+def build_order_baskets(frame: pd.DataFrame) -> dict[int, set[int]]:
     return {int(order_id): set(group["product_id"].dropna().astype(int)) for order_id, group in frame.groupby("order_id")}
+
+
+def split_users(frame: pd.DataFrame, *, test_size: float = 0.2, seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Split complete users so no customer's orders leak between train and test."""
+    if not 0 < test_size < 1:
+        raise ValueError("test_size must be between 0 and 1")
+    users = frame["user_id"].dropna().unique()
+    rng = np.random.default_rng(seed)
+    test_count = max(1, int(len(users) * test_size)) if len(users) else 0
+    test_users = set(rng.choice(users, size=test_count, replace=False).tolist()) if test_count else set()
+    is_test = frame["user_id"].isin(test_users)
+    return frame.loc[~is_test].copy(), frame.loc[is_test].copy()
 
 
 def _product_lookup(frame: pd.DataFrame) -> dict[int, dict[str, Any]]:
@@ -171,6 +184,84 @@ def _rules(baskets: dict[int, set[int]], lookup: dict[int, dict[str, Any]], min_
     return rows, {"basketDefinition": "one basket per order", "basketCount": len(baskets), "minSupport": min_support, "minConfidence": min_confidence, "itemsetCount": len(frequent), "maxItemsetLength": max_len, "itemsetsByLength": {str(length): int(count) for length, count in frequent["itemsets"].map(len).value_counts().items()}}
 
 
+def mine_association_rules(frame: pd.DataFrame, *, min_support: float = 0.005, min_confidence: float = 0.2, max_len: int = 3) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Mine order-level Apriori rules for an analysis or notebook stage."""
+    baskets = build_order_baskets(frame)
+    return _rules(baskets, _product_lookup(frame), min_support, min_confidence, max_len=max_len)
+
+
+def _recommendation_matrix(rules: list[dict[str, Any]], test_baskets: dict[int, set[int]], popularity: dict[int, float], ks: tuple[int, ...], seed: int) -> dict[str, Any]:
+    """Hide one product per eligible test order and score rule/fallback recommendations."""
+    eligible = [(order_id, sorted(products)) for order_id, products in test_baskets.items() if len(products) >= 2]
+    if not eligible:
+        return {"ordersEvaluated": 0, "ruleCoverage": 0.0, "recommendationCoverage": 0.0, "rules": {}, "rulesWithPopularityFallback": {}, "popularityBaseline": {}}
+
+    products = sorted({product for _, items in eligible for product in items} | set(popularity))
+    product_index = {product: index for index, product in enumerate(products)}
+    matrix = np.zeros((len(eligible), len(products)), dtype=bool)
+    for row_index, (_order_id, items) in enumerate(eligible):
+        matrix[row_index, [product_index[item] for item in items]] = True
+    rng = np.random.default_rng(seed)
+    hidden_indices = np.array([rng.choice(np.flatnonzero(row)) for row in matrix], dtype=int)
+    seen = matrix.copy()
+    seen[np.arange(len(eligible)), hidden_indices] = False
+    scores = np.zeros(matrix.shape, dtype=np.float32)
+    rule_fired = np.zeros(len(eligible), dtype=bool)
+    for rule in rules:
+        antecedents = [product_index[item["productId"]] for item in rule["antecedent"] if item["productId"] in product_index]
+        consequence = [item["productId"] for item in rule["consequent"] if item["productId"] in product_index]
+        if not antecedents or not consequence:
+            continue
+        fires = seen[:, antecedents].all(axis=1)
+        rule_fired |= fires
+        scores[fires, product_index[consequence[0]]] = np.maximum(scores[fires, product_index[consequence[0]]], float(rule["confidence"]))
+    scores[seen] = -np.inf
+    popularity_scores = np.array([popularity.get(product, 0.0) for product in products], dtype=np.float32)
+    popularity_matrix = np.broadcast_to(popularity_scores, scores.shape)
+    def metric_row(rank_scores: np.ndarray, *, require_rule: bool = False) -> dict[str, Any]:
+        result = {"coveragePercent": round(100 * (rule_fired.mean() if require_rule else 1.0), 2)}
+        for k in ks:
+            width = min(k, rank_scores.shape[1])
+            top = np.argpartition(-rank_scores, width - 1, axis=1)[:, :width]
+            hits = (top == hidden_indices[:, None]).any(axis=1)
+            if require_rule:
+                hits &= rule_fired
+            reciprocal = np.zeros(len(eligible), dtype=float)
+            for row_index, candidates in enumerate(top):
+                matches = np.flatnonzero(candidates == hidden_indices[row_index])
+                if len(matches) and (not require_rule or rule_fired[row_index]): reciprocal[row_index] = 1 / (matches[0] + 1)
+            result[f"hitRateAt{k}"] = round(float(hits.mean() * 100), 2)
+            result[f"recallAt{k}"] = result[f"hitRateAt{k}"]
+            result[f"mrrAt{k}"] = round(float(reciprocal.mean()), 4)
+        return result
+
+    hybrid_scores = scores.copy()
+    hybrid_scores[scores <= 0] = popularity_matrix[scores <= 0]
+    return {
+        "ordersEvaluated": len(eligible),
+        "ruleCoverage": round(float(rule_fired.mean() * 100), 2),
+        "recommendationCoverage": 100.0,
+        "rules": metric_row(scores, require_rule=True),
+        "rulesWithPopularityFallback": metric_row(hybrid_scores),
+        "popularityBaseline": metric_row(popularity_matrix),
+    }
+
+
+def evaluate_recommendations(train: pd.DataFrame, test: pd.DataFrame, rules: list[dict[str, Any]], *, ks: tuple[int, ...] = DEFAULT_KS, seed: int = 42) -> dict[str, Any]:
+    train_baskets = build_order_baskets(train)
+    test_baskets = build_order_baskets(test)
+    train_order_count = max(len(train_baskets), 1)
+    popularity = train["product_id"].value_counts(normalize=True).to_dict()
+    evaluation = _recommendation_matrix(rules, test_baskets, popularity, ks, seed)
+    evaluation["trainOrders"] = len(train_baskets)
+    evaluation["testOrders"] = len(test_baskets)
+    evaluation["trainUsers"] = int(train["user_id"].nunique())
+    evaluation["testUsers"] = int(test["user_id"].nunique())
+    evaluation["baseline"] = "Most popular unseen products"
+    evaluation["trainOrderFraction"] = round(len(train_baskets) / train_order_count, 4)
+    return evaluation
+
+
 def _network(rules: list[dict[str, Any]], lookup: dict[int, dict[str, Any]]) -> dict[str, Any]:
     edge_map: dict[tuple[int, int], dict[str, Any]] = {}
     for rule in rules:
@@ -183,29 +274,35 @@ def _network(rules: list[dict[str, Any]], lookup: dict[int, dict[str, Any]]) -> 
     return {"nodes": [{"id": product_id, "label": lookup[product_id]["product_name"], "department": lookup[product_id]["department"]} for product_id in sorted(ids)], "edges": list(edge_map.values())}
 
 
-def _reliability(frame: pd.DataFrame, rules: list[dict[str, Any]], parameters: dict[str, Any]) -> dict[str, Any]:
+def _reliability(frame: pd.DataFrame, rules: list[dict[str, Any]], parameters: dict[str, Any], evaluation: dict[str, Any]) -> dict[str, Any]:
     users = frame["user_id"].dropna().unique()
     split = int(len(users) * 0.8)
     return {
         "status": "available" if len(rules) else "insufficient_rules",
         "method": "order-level association rules with user-disjoint holdout reserved for runtime evaluation",
-        "trainUsers": split,
-        "testUsers": len(users) - split,
+        "trainUsers": evaluation.get("trainUsers", split),
+        "testUsers": evaluation.get("testUsers", len(users) - split),
         "ruleCount": len(rules),
         "parameters": parameters,
-        "baseline": {"name": "popularity", "hitRateAtK": None},
-        "model": {"name": "association rules", "hitRateAtK": None},
-        "note": "Full holdout scoring is represented as null until a recommendation k is requested by the backend.",
+        "baseline": {"name": "popularity", **evaluation.get("popularityBaseline", {})},
+        "model": {"name": "association rules", **evaluation.get("rulesWithPopularityFallback", {})},
+        "evaluation": evaluation,
+        "note": "Metrics use a user-disjoint holdout with one hidden product per eligible test order. This is recommendation performance, not classification accuracy.",
     }
 
 
-def build_payload(frame: pd.DataFrame, quality: dict[str, Any] | None = None, *, min_support: float = 0.005, min_confidence: float = 0.1) -> dict[str, Any]:
+def build_payload(frame: pd.DataFrame, quality: dict[str, Any] | None = None, *, min_support: float = 0.005, min_confidence: float = 0.2, max_len: int = 3, evaluation_seed: int = 42, evaluation_ks: tuple[int, ...] = DEFAULT_KS) -> dict[str, Any]:
     """Build the complete JSON-ready payload consumed by future backend routes."""
     frame = frame.copy()
-    baskets = _baskets(frame)
+    baskets = build_order_baskets(frame)
+    train, test = split_users(frame, seed=evaluation_seed)
     lookup = _product_lookup(frame)
-    parameters = {"minSupport": min_support, "minConfidence": min_confidence, "maxItemsetLength": 3, "basketDefinition": "order"}
-    rules, trace = _rules(baskets, lookup, min_support, min_confidence, max_len=3)
+    parameters = {"minSupport": min_support, "minConfidence": min_confidence, "maxItemsetLength": max_len, "basketDefinition": "order", "evaluationSeed": evaluation_seed, "evaluationKs": list(evaluation_ks)}
+    train_baskets = build_order_baskets(train)
+    train_lookup = _product_lookup(train)
+    evaluation_rules, evaluation_trace = _rules(train_baskets, train_lookup, min_support, min_confidence, max_len=max_len)
+    rules, trace = _rules(baskets, lookup, min_support, min_confidence, max_len=max_len)
+    evaluation = evaluate_recommendations(train, test, evaluation_rules, ks=evaluation_ks, seed=evaluation_seed)
     products = _products(frame)
     payload = {
         "schemaVersion": "1.0",
@@ -221,8 +318,8 @@ def build_payload(frame: pd.DataFrame, quality: dict[str, Any] | None = None, *,
         "patterns": {"rules": rules, "count": len(rules)},
         "bundles": {"rules": rules[:100], "count": len(rules)},
         "network": _network(rules, lookup),
-        "reliability": _reliability(frame, rules, parameters),
-        "howItWorks": {"algorithm": "Apriori", "trace": trace, "passes": [{"length": int(length), "itemsets": count} for length, count in trace.get("itemsetsByLength", {}).items()]},
+        "reliability": _reliability(frame, rules, parameters, evaluation),
+        "howItWorks": {"algorithm": "Apriori", "trace": {**trace, "evaluation": evaluation, "trainingTrace": evaluation_trace}, "passes": [{"length": int(length), "itemsets": count} for length, count in trace.get("itemsetsByLength", {}).items()]},
         "exports": {"products": products, "bundles": rules[:100]},
     }
     return _json_safe(payload)

@@ -29,7 +29,7 @@ function runPythonAnalysis(inputPath, outputPath) {
     '--min-support',
     process.env.ANALYSIS_MIN_SUPPORT || '0.005',
     '--min-confidence',
-    process.env.ANALYSIS_MIN_CONFIDENCE || '0.1',
+    process.env.ANALYSIS_MIN_CONFIDENCE || '0.2',
   ]
 
   return new Promise((resolve, reject) => {

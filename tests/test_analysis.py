@@ -1,6 +1,6 @@
 import json
 
-from cartsense_analysis.analysis import build_payload, load_orders
+from cartsense_analysis.analysis import build_order_baskets, build_payload, evaluate_recommendations, load_orders, mine_association_rules, split_users
 
 
 def test_mock_upload_reports_invalid_row_and_emits_screen_sections():
@@ -26,3 +26,25 @@ def test_order_level_pair_metrics_are_directional():
     assert milk_to_eggs["support"] == round(5 / 14, 6)
     assert milk_to_eggs["confidence"] > 0
     assert milk_to_eggs["lift"] > 0
+
+
+def test_evaluation_split_is_user_disjoint_and_metrics_are_finite():
+    frame, _quality = load_orders("public/mock-data/cart-sense-orders.csv")
+    train, test = split_users(frame, seed=42)
+    assert set(train["user_id"]).isdisjoint(set(test["user_id"]))
+
+    rules, _trace = mine_association_rules(train, min_support=0.05, min_confidence=0.1)
+    metrics = evaluate_recommendations(train, test, rules, ks=(1, 3, 5), seed=42)
+
+    assert metrics["ordersEvaluated"] > 0
+    assert 0 <= metrics["ruleCoverage"] <= 100
+    for model in (metrics["popularityBaseline"], metrics["rules"], metrics["rulesWithPopularityFallback"]):
+        assert all(value == value for value in model.values())
+
+
+def test_order_baskets_keep_products_from_multiple_departments_together():
+    frame, _quality = load_orders("public/mock-data/cart-sense-orders.csv")
+    baskets = build_order_baskets(frame)
+    sample_order = frame["order_id"].iloc[0]
+    sample_products = set(frame.loc[frame["order_id"] == sample_order, "product_id"].astype(int))
+    assert baskets[int(sample_order)] == sample_products
