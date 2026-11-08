@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 import '../style/association-network.css'
 
@@ -12,6 +13,8 @@ function nodePosition(index, count) {
 }
 
 export default function AssociationNetwork({ onNavigate }) {
+  const [zoom, setZoom] = useState(1)
+
   return (
     <AnalysisScreen title="Association Network" description="Explore the strongest product links, with a ranked list for precise follow-up when the network gets dense.">
       {(payload) => {
@@ -20,21 +23,15 @@ export default function AssociationNetwork({ onNavigate }) {
         const nodeById = new Map(allNodes.map((node) => [String(node.id), node]))
         const rankedEdges = [...allEdges].sort((a, b) => (Number(b.lift) || 0) - (Number(a.lift) || 0)
           || (Number(b.support) || 0) - (Number(a.support) || 0))
-        const selectedEdges = rankedEdges.slice(0, 30)
-        const degree = new Map()
-        selectedEdges.forEach((edge) => {
-          degree.set(String(edge.source), (degree.get(String(edge.source)) || 0) + 1)
-          degree.set(String(edge.target), (degree.get(String(edge.target)) || 0) + 1)
-        })
-        const selectedNodeIds = [...degree.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 14)
-          .map(([id]) => id)
-        const visibleNodes = selectedNodeIds
+        const selectedEdges = rankedEdges.slice(0, 10)
+        const visibleNodeIds = new Set(selectedEdges.flatMap((edge) => [String(edge.source), String(edge.target)]))
+        const visibleNodes = [...visibleNodeIds]
           .map((id) => nodeById.get(id))
           .filter(Boolean)
-        const visibleNodeIds = new Set(visibleNodes.map((node) => String(node.id)))
-        const visibleEdges = selectedEdges.filter((edge) => visibleNodeIds.has(String(edge.source)) && visibleNodeIds.has(String(edge.target)))
+        const visibleEdges = selectedEdges
+        const lifts = selectedEdges.map((edge) => Number(edge.lift) || 0)
+        const minLift = Math.min(...lifts, 0)
+        const maxLift = Math.max(...lifts, 1)
         const positions = new Map(visibleNodes.map((node, index) => [String(node.id), nodePosition(index, visibleNodes.length)]))
         const departmentList = [...new Set(visibleNodes.map((node) => node.department).filter(Boolean))]
         const departmentColor = new Map(departmentList.map((department, index) => [
@@ -57,14 +54,23 @@ export default function AssociationNetwork({ onNavigate }) {
           <AnalysisPanel title="Strongest relationship network" description={`Showing up to ${selectedEdges.length} highest-lift edges and ${visibleNodes.length} connected product nodes to keep the visual readable.`}>
             {visibleNodes.length && visibleEdges.length
               ? <div className="network-visual-wrap">
+                <div className="network-controls" aria-label="Network zoom controls">
+                  <button type="button" title="Zoom out" aria-label="Zoom out" disabled={zoom <= 0.75} onClick={() => setZoom((current) => Math.max(0.75, Number((current - 0.25).toFixed(2))))}>−</button>
+                  <span>{Math.round(zoom * 100)}%</span>
+                  <button type="button" title="Zoom in" aria-label="Zoom in" disabled={zoom >= 2.5} onClick={() => setZoom((current) => Math.min(2.5, Number((current + 0.25).toFixed(2))))}>+</button>
+                  <button type="button" title="Reset zoom" aria-label="Reset zoom" onClick={() => setZoom(1)}>Reset</button>
+                </div>
                 <svg className="network-visual" viewBox={`0 0 ${viewWidth} ${viewHeight}`} role="img" aria-label="Product relationship network, limited to strongest available relationships">
                   <title>Product relationship network. Nodes are products; links are ranked by lift.</title>
+                  <g transform={`translate(${viewWidth / 2} ${viewHeight / 2}) scale(${zoom}) translate(${-viewWidth / 2} ${-viewHeight / 2})`}>
                   {visibleEdges.map((edge, index) => {
                     const source = positions.get(String(edge.source))
                     const target = positions.get(String(edge.target))
                     if (!source || !target) return null
                     const lift = Number(edge.lift) || 0
-                    const strokeWidth = Math.max(1, Math.min(4, 1 + lift / 5))
+                    const liftRange = maxLift - minLift || 1
+                    const strokeWidth = 1.5 + ((lift - minLift) / liftRange) * 4.5
+                    const rank = rankedEdges.indexOf(edge) + 1
                     return <line
                       key={`${edge.source}-${edge.target}-${index}`}
                       x1={source.x}
@@ -73,9 +79,9 @@ export default function AssociationNetwork({ onNavigate }) {
                       y2={target.y}
                       stroke="#94a3b8"
                       strokeWidth={strokeWidth}
-                      strokeOpacity="0.55"
+                      strokeOpacity="0.72"
                     >
-                      <title>{`${nodeById.get(String(edge.source))?.label ?? edge.source} and ${nodeById.get(String(edge.target))?.label ?? edge.target}: lift ${lift.toLocaleString(undefined, { maximumFractionDigits: 2 })}×`}</title>
+                      <title>{`Rank ${rank}: ${nodeById.get(String(edge.source))?.label ?? edge.source} and ${nodeById.get(String(edge.target))?.label ?? edge.target}: lift ${lift.toLocaleString(undefined, { maximumFractionDigits: 2 })}×`}</title>
                     </line>
                   })}
                   {visibleNodes.map((node) => {
@@ -87,6 +93,7 @@ export default function AssociationNetwork({ onNavigate }) {
                       <text x={point.x} y={point.y + 24} textAnchor="middle" className="network-node-label">{node.label}</text>
                     </g>
                   })}
+                  </g>
                 </svg>
                 {departmentList.length > 0 && <ul className="network-legend" aria-label="Department legend">
                   {departmentList.map((department) => <li key={department}><span style={{ backgroundColor: departmentColor.get(department) }} />{department}</li>)}

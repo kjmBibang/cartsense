@@ -3,6 +3,45 @@
   overflow: hidden;
 }
 
+.network-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.network-controls button {
+  min-width: 34px;
+  min-height: 32px;
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-card);
+  color: #334155;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.network-controls button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.network-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.network-controls span {
+  min-width: 44px;
+  color: var(--color-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
 .network-visual {
   display: block;
   width: 100%;

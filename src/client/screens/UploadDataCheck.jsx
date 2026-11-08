@@ -1,7 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { clearAnalysisPayload, deleteImport, getAnalysisPayload, getDataCheck, getImportHistory, publishSelectedAnalysis, uploadOrders } from '../api.js'
-import { InfoTip, ScreenLink } from '../AnalysisScreen.jsx'
+import { ScreenLink } from '../AnalysisScreen.jsx'
 import '../style/upload-data-check.css'
+
+const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+function formatHourLabel(hour, format) {
+  const numericHour = Number(hour)
+  if (format === '12') {
+    const suffix = numericHour >= 12 ? 'PM' : 'AM'
+    const displayHour = numericHour % 12 || 12
+    return `${displayHour}:00 ${suffix}`
+  }
+  return `${String(numericHour).padStart(2, '0')}:00`
+}
 
 function readStoredImportSelection() {
   try {
@@ -27,6 +39,7 @@ export default function UploadDataCheck() {
   const [selectedImportIds, setSelectedImportIds] = useState(() => readStoredImportSelection() ?? [])
   const [hasStoredSelection, setHasStoredSelection] = useState(() => readStoredImportSelection() !== null)
   const [filters, setFilters] = useState({ orderDow: '', orderHour: '', department: '', search: '' })
+  const [hourFormat, setHourFormat] = useState('24')
   const [dataCheck, setDataCheck] = useState(null)
   const [historyError, setHistoryError] = useState('')
   const [dataCheckLoading, setDataCheckLoading] = useState(false)
@@ -34,8 +47,12 @@ export default function UploadDataCheck() {
   const [scopeError, setScopeError] = useState('')
   const [importsLoaded, setImportsLoaded] = useState(false)
   const [deletingImportId, setDeletingImportId] = useState(null)
+  const [dataCheckPage, setDataCheckPage] = useState(1)
+  const [dataCheckCollapsed, setDataCheckCollapsed] = useState(false)
 
   const completedImports = useMemo(() => imports.filter((item) => item.status === 'completed'), [imports])
+  const dataCheckPageCount = Math.max(1, Math.ceil((dataCheck?.rows.length || 0) / 50))
+  const currentDataCheckPage = Math.min(dataCheckPage, dataCheckPageCount)
 
   const refreshImports = useCallback(async (preferredId = null) => {
     try {
@@ -304,18 +321,25 @@ export default function UploadDataCheck() {
         <p className="upload-scope-status" role="status">{scopeStatus}</p>
         {scopeError && <p className="upload-error" role="alert">{scopeError}</p>}
         <div className="upload-filters">
-          <label>Day of week<select value={filters.orderDow} onChange={(event) => setFilters({ ...filters, orderDow: event.target.value })}><option value="">All days</option>{Array.from({ length: 7 }, (_value, day) => <option key={day} value={day}>{day}</option>)}</select></label>
-          <label>Hour of day<select value={filters.orderHour} onChange={(event) => setFilters({ ...filters, orderHour: event.target.value })}><option value="">All hours</option>{Array.from({ length: 24 }, (_value, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')}:00</option>)}</select></label>
+          <label>Day of week<select value={filters.orderDow} onChange={(event) => setFilters({ ...filters, orderDow: event.target.value })}><option value="">All days</option>{days.map((day, index) => <option key={day} value={index}>{day}</option>)}</select></label>
+          <label>Hour of day<select value={filters.orderHour} onChange={(event) => setFilters({ ...filters, orderHour: event.target.value })}><option value="">All hours</option>{Array.from({ length: 24 }, (_value, hour) => <option key={hour} value={hour}>{formatHourLabel(hour, hourFormat)}</option>)}</select></label>
+          <label>Hour format<select value={hourFormat} onChange={(event) => setHourFormat(event.target.value)}><option value="24">24-hour</option><option value="12">12-hour (AM/PM)</option></select></label>
           <label>Department<input value={filters.department} placeholder="e.g. produce" onChange={(event) => setFilters({ ...filters, department: event.target.value })} /></label>
           <label>Product search<input value={filters.search} placeholder="Name or product ID" onChange={(event) => setFilters({ ...filters, search: event.target.value })} /></label>
         </div>
         {dataCheck && <>
+          <div className="upload-table-toolbar">
+            <span className="upload-table-result-count">{dataCheck.rows.length.toLocaleString()} grouped rows available</span>
+            <button className="upload-table-collapse" type="button" onClick={() => setDataCheckCollapsed((current) => !current)} aria-expanded={!dataCheckCollapsed}>
+              {dataCheckCollapsed ? 'Show table' : 'Collapse table'}
+            </button>
+          </div>
           <div className="upload-data-summary">
-            {Object.entries(dataCheck.summary).map(([label, value]) => <span key={label}><strong>{Number(value).toLocaleString()}</strong> {label}<InfoTip text={`Filtered ${label} calculated from the selected CSV imports in MySQL.`} /></span>)}
+            {Object.entries(dataCheck.summary).map(([label, value]) => <span key={label}><strong>{Number(value).toLocaleString()}</strong> <span className="upload-data-summary-label" title={`Filtered ${label} calculated from the selected CSV imports in MySQL.`}>{label}</span></span>)}
           </div>
           {!selectedImportIds.length && <p className="upload-empty">Select at least one completed CSV to query its rows.</p>}
           {selectedImportIds.length > 0 && !dataCheck.rows.length && <p className="upload-empty">No stored rows match these filters.</p>}
-          {dataCheck.rows.length > 0 && <div className="upload-table-wrap"><table className="upload-table"><thead><tr><th>CSV</th><th>Product</th><th>Department</th><th>Day</th><th>Hour</th><th>Orders</th><th>Units</th></tr></thead><tbody>{dataCheck.rows.map((row) => <tr key={`${row.importId}-${row.productId}-${row.orderDow}-${row.orderHour}`}><td>{row.filename}</td><td>{row.productName}</td><td>{row.department}</td><td>{row.orderDow ?? '—'}</td><td>{row.orderHour ?? '—'}</td><td>{row.orders.toLocaleString()}</td><td>{row.units.toLocaleString()}</td></tr>)}</tbody></table></div>}
+          {!dataCheckCollapsed && dataCheck.rows.length > 0 && <div className="upload-table-wrap"><table className="upload-table"><thead><tr><th title="The imported CSV file that contains the grouped rows.">CSV</th><th title="The product name and identifier represented by the grouped rows.">Product</th><th title="The grocery department assigned to the product.">Department</th><th title="The day of the week recorded for these rows.">Day</th><th title="The hour of day recorded for these rows.">Hour</th><th title="The number of distinct orders containing these rows.">Orders</th><th title="The number of product units recorded in these rows.">Units</th></tr></thead><tbody>{dataCheck.rows.slice((currentDataCheckPage - 1) * 50, currentDataCheckPage * 50).map((row) => <tr key={`${row.importId}-${row.productId}-${row.orderDow}-${row.orderHour}`}><td>{row.filename}</td><td>{row.productName}</td><td>{row.department}</td><td>{row.orderDow == null ? '—' : days[Number(row.orderDow)] ?? `Day ${row.orderDow}`}</td><td>{row.orderHour == null ? '—' : formatHourLabel(row.orderHour, hourFormat)}</td><td>{row.orders.toLocaleString()}</td><td>{row.units.toLocaleString()}</td></tr>)}</tbody></table><div className="upload-table-pagination" aria-label="Database table pagination"><button type="button" disabled={currentDataCheckPage === 1} onClick={() => setDataCheckPage((current) => current - 1)}>Previous</button><span>Page {currentDataCheckPage} of {dataCheckPageCount} · {dataCheck.rows.length.toLocaleString()} rows</span><button type="button" disabled={currentDataCheckPage === dataCheckPageCount} onClick={() => setDataCheckPage((current) => current + 1)}>Next</button></div></div>}
           <ScreenLink onNavigate={() => window.scrollTo({ top: 0, behavior: 'smooth' })} target="dashboard">See the active analysis dashboard</ScreenLink>
           {dataCheck.rows.length === 500 && <p className="analysis-footnote">Showing the first 500 grouped results.</p>}
         </>}

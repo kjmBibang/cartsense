@@ -11,6 +11,8 @@ def test_mock_upload_reports_invalid_row_and_emits_screen_sections():
     assert quality["invalidRows"] == 1
     assert payload["summary"]["orders"] == 14
     assert payload["summary"]["customers"] == 5
+    assert sum(row["orders"] for row in payload["behavior"]["basketSizes"]) == payload["summary"]["orders"]
+    assert max(edge["lift"] for edge in payload["network"]["edges"]) == max(rule["lift"] for rule in payload["patterns"]["rules"])
     assert payload["network"]["nodes"]
     assert payload["bundles"]["rules"]
     json.dumps(payload, allow_nan=False)

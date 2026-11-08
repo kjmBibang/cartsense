@@ -1,9 +1,20 @@
+import { useState } from 'react'
 import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
-const formatHour = (hour) => `${String(hour).padStart(2, '0')}:00`
+function formatHour(hour, format) {
+  const numericHour = Number(hour)
+  if (format === '12') {
+    const suffix = numericHour >= 12 ? 'PM' : 'AM'
+    const displayHour = numericHour % 12 || 12
+    return `${displayHour}:00 ${suffix}`
+  }
+  return `${String(numericHour).padStart(2, '0')}:00`
+}
 
 export default function ShoppingBehavior() {
+  const [hourFormat, setHourFormat] = useState('24')
+
   return (
     <AnalysisScreen title="Shopping Behavior" description="See when customers shop, how large baskets are, and what the payload says about repeat purchasing.">
       {(payload) => {
@@ -11,10 +22,11 @@ export default function ShoppingBehavior() {
           ? payload.dashboard.ordersByDay.map((row) => ({ ...row, label: days[Number(row.day)] ?? `Day ${row.day}` }))
           : []
         const byHour = Array.isArray(payload.dashboard?.ordersByHour)
-          ? payload.dashboard.ordersByHour.map((row) => ({ ...row, label: formatHour(row.hour) }))
+          ? payload.dashboard.ordersByHour.map((row) => ({ ...row, label: formatHour(row.hour, hourFormat) }))
           : []
         const reorders = Array.isArray(payload.behavior?.reorders) ? payload.behavior.reorders : []
         const basketSizes = Array.isArray(payload.behavior?.basketSizes) ? payload.behavior.basketSizes : []
+        const basketSizeRows = basketSizes.map((row) => ({ ...row, sizeLabel: `${Number(row.size).toLocaleString()} items` }))
         const intervals = Array.isArray(payload.behavior?.daysSincePriorOrder) ? payload.behavior.daysSincePriorOrder : []
         const heatmap = Array.isArray(payload.behavior?.heatmap) ? payload.behavior.heatmap : []
         const reorderedItems = reorders.find((row) => Number(row.reordered) === 1)?.items
@@ -46,7 +58,10 @@ export default function ShoppingBehavior() {
           <div className="analysis-chart-grid">
             <AnalysisPanel title="Basket size distribution" description="Order counts are shown as supplied by the analysis.">
               {basketSizes.length
-                ? <HorizontalBarChart rows={basketSizes} labelKey="size" valueKey="orders" label="Orders by basket size" valueFormat={(value) => `${value.toLocaleString()} orders`} />
+                ? <>
+                  <HorizontalBarChart rows={basketSizeRows} labelKey="sizeLabel" valueKey="orders" label="Orders by basket size" valueFormat={(value) => `${value.toLocaleString()} orders`} />
+                  <DataTable searchable={false} columns={ [['sizeLabel', 'Basket size'], ['orders', 'Orders']] } rows={basketSizeRows} />
+                </>
                 : <EmptyState>Basket-size distribution is not available in this payload.</EmptyState>}
               <DetailDisclosure title="How to read basket size">This distribution counts baskets by the number of items they contain. It describes observed shopping behavior, not a forecast of future basket size.</DetailDisclosure>
             </AnalysisPanel>
@@ -64,7 +79,8 @@ export default function ShoppingBehavior() {
             <DataTable
               searchLabel="Search day and hour observations"
               columns={ [['day', 'Weekday'], ['hour', 'Hour'], ['orders', 'Orders']] }
-              rows={heatmap.map((row) => ({ ...row, day: days[Number(row.day)] ?? `Day ${row.day}`, hour: formatHour(row.hour) }))}
+              toolbarAction={<label className="analysis-hour-format"><span>Hour format</span><select value={hourFormat} onChange={(event) => setHourFormat(event.target.value)}><option value="24">24-hour</option><option value="12">12-hour (AM/PM)</option></select></label>}
+              rows={heatmap.map((row) => ({ ...row, day: days[Number(row.day)] ?? `Day ${row.day}`, hour: formatHour(row.hour, hourFormat) }))}
             />
           </AnalysisPanel>
         </>
