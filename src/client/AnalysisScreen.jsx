@@ -4,6 +4,32 @@ import { formatAnalysisValue } from './analysisUtils.js'
 import './style/analysis-data.css'
 
 const EMPTY_ROWS = []
+const TABLE_HEADER_HELP = {
+  rank: 'Position after sorting the rows by the table\'s current ranking.',
+  sourceProduct: 'The product at the starting point of the observed relationship.',
+  targetProduct: 'The product observed in the same basket relationship as the source product.',
+  antecedentProductName: 'The product customers bought first in this association rule.',
+  consequentProductName: 'The product customers also bought in this association rule.',
+  productName: 'The name of the product in this row.',
+  department: 'The grocery department assigned to the product.',
+  orders: 'The number of distinct orders containing this row or relationship.',
+  items: 'The number of item rows counted in this group.',
+  units: 'The number of product units recorded in this group.',
+  products: 'The number of distinct products in this group.',
+  support: 'The share of baskets containing the relationship.',
+  confidence: 'The chance of the consequent product when the antecedent product appears.',
+  lift: 'How much more often the relationship appears than independent purchasing would predict.',
+  reorderRate: 'The percentage of recorded items marked as reordered.',
+  averageCartPosition: 'The average position of this product in the cart.',
+  sizeLabel: 'The number of items contained in each basket-size group.',
+  field: 'The source field being checked.',
+  count: 'The number of records counted for this field.',
+  row: 'The source CSV row where the issue was found.',
+  column: 'The source CSV column associated with the issue.',
+  message: 'The validation issue reported for the source row.',
+  length: 'The number of products in the itemset.',
+  itemsets: 'The number of frequent itemsets at this length.',
+}
 
 export default function AnalysisScreen({ title, description, children }) {
   const [payload, setPayload] = useState(null)
@@ -136,10 +162,13 @@ export function HorizontalBarChart({
   )
 }
 
-export function DataTable({ columns, rows, searchable = true, searchLabel = 'Search this table' }) {
+export function DataTable({ columns, rows, searchable = true, searchLabel = 'Search this table', toolbarAction = null }) {
   const safeRows = Array.isArray(rows) ? rows : EMPTY_ROWS
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState({ key: '', direction: 'ascending' })
+  const [page, setPage] = useState(1)
+  const [collapsed, setCollapsed] = useState(false)
+  const pageSize = 50
   const filteredRows = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase()
     const matches = normalizedQuery
@@ -159,31 +188,48 @@ export function DataTable({ columns, rows, searchable = true, searchLabel = 'Sea
 
   if (!safeRows.length) return <EmptyState>No rows are available for this section.</EmptyState>
 
+  const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
+  const currentPage = Math.min(page, pageCount)
+  const visibleRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const changeQuery = (value) => {
+    setQuery(value)
+    setPage(1)
+  }
+
   return (
     <>
-      {searchable && (
-        <label className="analysis-table-search">
-          <span>{searchLabel}</span>
-          <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} />
-        </label>
-      )}
-      {!filteredRows.length
+      <div className="analysis-table-toolbar">
+        {searchable && (
+          <label className="analysis-table-search">
+            <span>{searchLabel}</span>
+            <input type="search" value={query} onChange={(event) => changeQuery(event.target.value)} />
+          </label>
+        )}
+        {toolbarAction}
+        <button className="analysis-table-collapse" type="button" onClick={() => setCollapsed((current) => !current)} aria-expanded={!collapsed}>
+          {collapsed ? 'Show table' : 'Collapse table'}
+        </button>
+      </div>
+      {!collapsed && (!filteredRows.length
         ? <EmptyState>No rows match this search.</EmptyState>
         : <div className="analysis-table-wrap">
           <table className="analysis-table">
             <thead>
               <tr>
-                {columns.map(([key, heading]) => (
+                {columns.map(([key, heading, description]) => (
                   <th key={key} scope="col" aria-sort={sort.key === key ? sort.direction : 'none'}>
                     <button
                       type="button"
                       className="analysis-sort-button"
-                      onClick={() => setSort((current) => ({
-                        key,
-                        direction: current.key === key && current.direction === 'ascending' ? 'descending' : 'ascending',
-                      }))}
+                      onClick={() => {
+                        setPage(1)
+                        setSort((current) => ({
+                          key,
+                          direction: current.key === key && current.direction === 'ascending' ? 'descending' : 'ascending',
+                        }))
+                      }}
                     >
-                      {heading}
+                      <span title={description || TABLE_HEADER_HELP[key] || `${heading} column`}>{heading}</span>
                       <span aria-hidden="true">{sort.key === key ? (sort.direction === 'ascending' ? ' ↑' : ' ↓') : ' ↕'}</span>
                     </button>
                   </th>
@@ -191,15 +237,19 @@ export function DataTable({ columns, rows, searchable = true, searchLabel = 'Sea
               </tr>
             </thead>
             <tbody>
-              {filteredRows.slice(0, 250).map((row, index) => (
-                <tr key={row.id ?? row.productId ?? row.productName ?? `${row.antecedentProductName ?? ''}-${row.consequentProductName ?? ''}-${index}`}>
+              {visibleRows.map((row, index) => (
+                <tr key={row.id ?? row.productId ?? row.productName ?? `${row.antecedentProductName ?? ''}-${row.consequentProductName ?? ''}-${(currentPage - 1) * pageSize + index}`}>
                   {columns.map(([key]) => <td key={key}>{formatAnalysisValue(key, row[key])}</td>)}
                 </tr>
               ))}
             </tbody>
           </table>
-          {filteredRows.length > 250 && <p className="analysis-table-note">Showing the first 250 matching rows. Refine the search to narrow the results.</p>}
-        </div>}
+          <div className="analysis-table-pagination" aria-label="Table pagination">
+            <button type="button" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Previous</button>
+            <span>Page {currentPage} of {pageCount} · {filteredRows.length.toLocaleString()} rows</span>
+            <button type="button" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Next</button>
+          </div>
+        </div>)}
     </>
   )
 }

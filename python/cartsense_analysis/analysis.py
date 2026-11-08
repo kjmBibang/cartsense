@@ -146,11 +146,12 @@ def _behavior(frame: pd.DataFrame, baskets: dict[int, set[int]]) -> dict[str, An
     day_hour = frame.dropna(subset=["order_dow", "order_hour_of_day"]).groupby(["order_dow", "order_hour_of_day"])["order_id"].nunique()
     reorder = frame.groupby("reordered").size()
     timing = frame.dropna(subset=["days_since_prior_order"]).groupby("days_since_prior_order").size()
+    basket_size_counts = Counter(len(items) for items in baskets.values())
     return {
         "heatmap": [{"day": int(day), "hour": int(hour), "orders": int(value)} for (day, hour), value in day_hour.items()],
         "reorders": [{"reordered": int(flag), "items": int(value)} for flag, value in reorder.items()],
         "daysSincePriorOrder": [{"days": int(days), "items": int(value)} for days, value in timing.items()],
-        "basketSizes": [{"size": len(items), "orders": 1} for items in baskets.values()],
+        "basketSizes": [{"size": int(size), "orders": int(count)} for size, count in sorted(basket_size_counts.items())],
     }
 
 
@@ -269,7 +270,10 @@ def _network(rules: list[dict[str, Any]], lookup: dict[int, dict[str, Any]]) -> 
         consequents = [item["productId"] for item in rule["consequent"]]
         for source, target in combinations(antecedents + consequents, 2):
             pair = tuple(sorted((source, target)))
-            edge_map[pair] = {"source": pair[0], "target": pair[1], "support": rule["support"], "lift": rule["lift"], "confidence": max(rule["confidence"], edge_map.get(pair, {}).get("confidence", 0)), "orders": rule["orders"]}
+            current = edge_map.get(pair)
+            candidate = {"source": pair[0], "target": pair[1], "support": rule["support"], "lift": rule["lift"], "confidence": rule["confidence"], "orders": rule["orders"]}
+            if current is None or (candidate["lift"], candidate["support"], candidate["confidence"]) > (current["lift"], current["support"], current["confidence"]):
+                edge_map[pair] = candidate
     ids = {product_id for pair in edge_map for product_id in pair}
     return {"nodes": [{"id": product_id, "label": lookup[product_id]["product_name"], "department": lookup[product_id]["department"]} for product_id in sorted(ids)], "edges": list(edge_map.values())}
 

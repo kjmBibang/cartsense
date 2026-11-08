@@ -285,6 +285,13 @@
   color: var(--color-primary);
 }
 
+.analysis-sort-button span[title],
+.analysis-table th[title] {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
 .analysis-sort-button:focus-visible,
 .analysis-export-button:focus-visible {
   outline: 2px solid var(--color-primary);
@@ -292,13 +299,68 @@
 }
 
 .analysis-table-search,
-.analysis-filters label {
+.analysis-filters label,
+.analysis-hour-format {
   display: inline-grid;
   max-width: 100%;
   gap: 5px;
   color: #475569;
   font-size: 12px;
   font-weight: 600;
+}
+
+.analysis-hour-format select {
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-card);
+  color: var(--color-text);
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+
+.analysis-table-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.analysis-table-collapse,
+.analysis-table-pagination button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-card);
+  color: var(--color-text);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.analysis-table-collapse:hover:not(:disabled),
+.analysis-table-pagination button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.analysis-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+
+.analysis-table-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .analysis-table-search {

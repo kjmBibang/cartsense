@@ -5,6 +5,7 @@ import { publishAnalysisForImports } from '../services/analysisPipeline.js'
 
 const router = Router()
 const scopeJobs = new Map()
+const deleteJobs = new Map()
 let latestScopeJobId = null
 
 function updateScopeJob(jobId, update) {
@@ -76,6 +77,59 @@ router.post('/scope-analysis', async (request, response, next) => {
 router.get('/scope-analysis/:jobId', (request, response) => {
   const job = scopeJobs.get(request.params.jobId)
   if (!job) return response.status(404).json({ error: 'Scope analysis job was not found.' })
+  return response.json(job)
+})
+
+function updateDeleteJob(jobId, update) {
+  deleteJobs.set(jobId, { ...deleteJobs.get(jobId), ...update, updatedAt: new Date().toISOString() })
+}
+
+async function deleteImportRows(jobId, importId, totalRows) {
+  try {
+    let deletedRows = 0
+    const batchSize = 10000
+    updateDeleteJob(jobId, { status: 'deleting', progress: 0, message: 'Deleting stored rows' })
+    while (true) {
+      const [result] = await pool.execute(`DELETE FROM order_lines WHERE import_id = ? LIMIT ${batchSize}`, [importId])
+      deletedRows += result.affectedRows
+      if (!result.affectedRows) break
+      updateDeleteJob(jobId, {
+        status: 'deleting',
+        progress: totalRows ? Math.min(99, Math.floor((deletedRows / totalRows) * 100)) : 50,
+        message: `Deleted ${deletedRows.toLocaleString()} of ${totalRows.toLocaleString()} stored rows`,
+      })
+    }
+    const [result] = await pool.execute('DELETE FROM imports WHERE id = ?', [importId])
+    if (!result.affectedRows) throw new Error(`Import ${importId} was not found.`)
+    updateDeleteJob(jobId, { status: 'completed', progress: 100, message: 'Import deleted' })
+  } catch (error) {
+    updateDeleteJob(jobId, { status: 'failed', progress: 100, message: error.message || 'Import deletion failed.' })
+  }
+}
+
+router.delete('/imports/:id', async (request, response, next) => {
+  const rawId = request.params.id
+  const importId = /^\d+$/.test(rawId) ? Number(rawId) : null
+  if (!Number.isSafeInteger(importId) || importId <= 0) {
+    return response.status(400).json({ error: 'Import ID must be a positive integer.' })
+  }
+
+  try {
+    const [[existing]] = await pool.execute('SELECT imported_rows AS importedRows FROM imports WHERE id = ?', [importId])
+    if (!existing) return response.status(404).json({ error: `Import ${importId} was not found.` })
+    const jobId = `delete-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    latestScopeJobId = null
+    deleteJobs.set(jobId, { jobId, importId, status: 'queued', progress: 0, message: 'Deletion queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    void deleteImportRows(jobId, importId, Number(existing.importedRows || 0))
+    return response.status(202).json({ jobId, status: 'queued', progress: 0 })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/imports/:id/delete/:jobId', (request, response) => {
+  const job = deleteJobs.get(request.params.jobId)
+  if (!job || String(job.importId) !== request.params.id) return response.status(404).json({ error: 'Import deletion job was not found.' })
   return response.json(job)
 })
 

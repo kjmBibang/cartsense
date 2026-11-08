@@ -279,7 +279,7 @@
 
 .upload-import-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -330,6 +330,29 @@
 
 .upload-import-status.is-processing {
   color: #92400e;
+}
+
+.upload-import-delete {
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-card);
+  color: #b91c1c;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-import-delete:hover:not(:disabled) {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.upload-import-delete:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .upload-filters {
@@ -387,9 +410,68 @@
   font-size: 20px;
 }
 
+.upload-data-summary-label {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.upload-table th[title] {
+  cursor: help;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
 .upload-table-wrap {
   overflow-x: auto;
   border: 1px solid var(--color-border);
+}
+
+.upload-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.upload-table-result-count {
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+
+.upload-table-collapse,
+.upload-table-pagination button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  color: var(--color-text);
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-table-collapse:hover:not(:disabled),
+.upload-table-pagination button:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.upload-table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+
+.upload-table-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .upload-table {
@@ -464,6 +546,11 @@
   .upload-import-stat,
   .upload-import-status {
     grid-column: 2;
+  }
+
+  .upload-import-delete {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .upload-filters,
