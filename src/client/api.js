@@ -60,6 +60,24 @@ export async function getImportHistory() {
   return payload
 }
 
+export async function deleteImport(importId) {
+  const response = await fetch(`/api/analysis/imports/${encodeURIComponent(importId)}`, { method: 'DELETE' })
+  const payload = await response.json()
+  if (!response.ok) {
+    throw new Error(payload.error || 'Could not delete the import.')
+  }
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < 15 * 60 * 1000) {
+    await new Promise((resolve) => window.setTimeout(resolve, 750))
+    const statusResponse = await fetch(`/api/analysis/imports/${encodeURIComponent(importId)}/delete/${encodeURIComponent(payload.jobId)}`)
+    const statusPayload = await statusResponse.json()
+    if (!statusResponse.ok) throw new Error(statusPayload.error || 'Could not load import deletion status.')
+    if (statusPayload.status === 'failed') throw new Error(statusPayload.message || 'Import deletion failed.')
+    if (statusPayload.status === 'completed') return
+  }
+  throw new Error('Import deletion timed out. Check the API logs before retrying.')
+}
+
 export async function getDataCheck(filters) {
   const params = new URLSearchParams()
   if (filters.importIds?.length) params.set('importIds', filters.importIds.join(','))

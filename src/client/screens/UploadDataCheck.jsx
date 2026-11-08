@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { clearAnalysisPayload, getAnalysisPayload, getDataCheck, getImportHistory, publishSelectedAnalysis, uploadOrders } from '../api.js'
+import { clearAnalysisPayload, deleteImport, getAnalysisPayload, getDataCheck, getImportHistory, publishSelectedAnalysis, uploadOrders } from '../api.js'
 import { InfoTip, ScreenLink } from '../AnalysisScreen.jsx'
 import '../style/upload-data-check.css'
 
@@ -33,6 +33,7 @@ export default function UploadDataCheck() {
   const [scopeStatus, setScopeStatus] = useState('')
   const [scopeError, setScopeError] = useState('')
   const [importsLoaded, setImportsLoaded] = useState(false)
+  const [deletingImportId, setDeletingImportId] = useState(null)
 
   const completedImports = useMemo(() => imports.filter((item) => item.status === 'completed'), [imports])
 
@@ -180,6 +181,23 @@ export default function UploadDataCheck() {
     }
   }
 
+  async function handleDeleteImport(item) {
+    const importId = Number(item.id)
+    if (!window.confirm(`Delete ${item.filename} and all ${Number(item.importedRows).toLocaleString()} stored rows? This cannot be undone.`)) return
+    setHistoryError('')
+    setDeletingImportId(importId)
+    try {
+      await deleteImport(importId)
+      setSelectedImportIds((current) => current.filter((id) => id !== importId))
+      if (Number(result?.importId) === importId) setResult(null)
+      await refreshImports()
+    } catch (requestError) {
+      setHistoryError(requestError.message || 'Could not delete the import.')
+    } finally {
+      setDeletingImportId(null)
+    }
+  }
+
   return (
     <section className="upload-screen" aria-labelledby="upload-title">
       <header className="upload-heading">
@@ -254,9 +272,11 @@ export default function UploadDataCheck() {
         {imports.length > 0 && <div className="upload-import-list">
           {imports.map((item) => {
             const selected = selectedImportIds.includes(Number(item.id))
-            return <label className={`upload-import-item${selected ? ' is-selected' : ''}`} key={item.id}>
+            const deleting = deletingImportId === Number(item.id)
+            return <div className={`upload-import-item${selected ? ' is-selected' : ''}`} key={item.id}>
               <input
                 type="checkbox"
+                aria-label={`Select ${item.filename}`}
                 checked={selected}
                 disabled={item.status !== 'completed'}
                 onChange={() => setSelectedImportIds((current) => selected
@@ -266,7 +286,10 @@ export default function UploadDataCheck() {
               <span className="upload-import-main"><strong>{item.filename}</strong><small>{new Date(item.createdAt).toLocaleString()}</small></span>
               <span className="upload-import-stat">{Number(item.importedRows).toLocaleString()} rows</span>
               <span className={`upload-import-status is-${item.status}`}>{item.status}</span>
-            </label>
+              <button className="upload-import-delete" type="button" disabled={deleting} onClick={() => handleDeleteImport(item)}>
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           })}
         </div>}
       </section>

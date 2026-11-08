@@ -279,7 +279,7 @@
 
 .upload-import-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
   align-items: center;
   gap: 12px;
   padding: 12px 14px;
@@ -330,6 +330,29 @@
 
 .upload-import-status.is-processing {
   color: #92400e;
+}
+
+.upload-import-delete {
+  min-height: 32px;
+  padding: 5px 9px;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-card);
+  color: #b91c1c;
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-import-delete:hover:not(:disabled) {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.upload-import-delete:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .upload-filters {
@@ -464,6 +487,11 @@
   .upload-import-stat,
   .upload-import-status {
     grid-column: 2;
+  }
+
+  .upload-import-delete {
+    grid-column: 2;
+    justify-self: start;
   }
 
   .upload-filters,
