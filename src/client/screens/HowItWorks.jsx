@@ -1,4 +1,4 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
 
 export default function HowItWorks() {
   return (
@@ -22,7 +22,7 @@ export default function HowItWorks() {
             <MetricCard label="Frequent itemsets" value={trace.itemsetCount?.toLocaleString() ?? '—'} />
             <MetricCard label="Maximum itemset length" value={trace.maxItemsetLength ?? parameters.maxItemsetLength ?? '—'} />
           </div>
-          <AnalysisPanel title="Processing trace" description="Values are read from this payload; missing stages are not inferred.">
+          <AnalysisPanel title="Processing trace" titleHelp="This trace shows how the current payload was produced." description="Values are read from this payload; missing stages are not inferred.">
             {steps.length
               ? <ol className="analysis-process">
                 {steps.map((step, index) => <li key={step.title}>
@@ -32,6 +32,7 @@ export default function HowItWorks() {
                 </li>)}
               </ol>
               : <EmptyState>No processing trace is included in this payload.</EmptyState>}
+            <DetailDisclosure title="What each pass means">Each pass tests itemsets of a given length against the active support threshold before qualifying relationships are generated.</DetailDisclosure>
           </AnalysisPanel>
           <div className="analysis-chart-grid">
             <AnalysisPanel title="Frequent itemsets by pass" description="Each pass corresponds to an itemset length recorded by the analyzer.">

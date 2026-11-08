@@ -1,6 +1,6 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 
-export default function DepartmentInsights() {
+export default function DepartmentInsights({ onNavigate }) {
   return (
     <AnalysisScreen title="Department Insights" description="Compare department reach, item volume, assortment breadth, and repeat purchasing to guide account-level follow-up.">
       {(payload) => {
@@ -21,6 +21,7 @@ export default function DepartmentInsights() {
           </div>
           <AnalysisPanel title="Department order comparison" description="Orders indicate the number of baskets containing products from each department. Departments may overlap within an order.">
             <HorizontalBarChart rows={chartRows} labelKey="department" valueKey="orders" label="Departments ranked by orders" />
+            <ScreenLink onNavigate={onNavigate} target="products">Inspect products by department</ScreenLink>
           </AnalysisPanel>
           {rows.length > 0 && <div className="analysis-insight-strip">
             <p><strong>Leading reach:</strong> {leading.department} appears in {Number(leading.orders).toLocaleString()} orders across {Number(leading.products).toLocaleString()} products.</p>
@@ -34,6 +35,7 @@ export default function DepartmentInsights() {
                 rows={rankedRows}
               />
               : <EmptyState>No department rows are available for this analysis.</EmptyState>}
+            <DetailDisclosure title="Why department totals can overlap">A single basket can contain products from several departments, so department order counts are not mutually exclusive and should not be summed as unique orders.</DetailDisclosure>
           </AnalysisPanel>
         </>
       }}

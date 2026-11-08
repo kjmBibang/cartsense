@@ -1,4 +1,4 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 
 function csvCell(value) {
   const text = value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value)
@@ -21,7 +21,7 @@ function downloadCsv(filename, columns, rows) {
   URL.revokeObjectURL(url)
 }
 
-export default function ReportsExport() {
+export default function ReportsExport({ onNavigate }) {
   return (
     <AnalysisScreen title="Reports / Export" description="Download the product and bundle rows from the currently published analysis for account planning and follow-up.">
       {(payload) => {
@@ -51,6 +51,7 @@ export default function ReportsExport() {
               <div><dt>Minimum confidence</dt><dd>{params.minConfidence == null ? 'Not provided' : `${(Number(params.minConfidence) * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`}</dd></div>
               <div><dt>Maximum itemset length</dt><dd>{params.maxItemsetLength ?? 'Not provided'}</dd></div>
             </dl>
+            <DetailDisclosure title="What the exports contain">The product export contains product-level reach and reorder fields. The bundle export contains association-rule metrics from the same active analysis scope.</DetailDisclosure>
           </AnalysisPanel>
           <AnalysisPanel title="Product export">
             <div className="analysis-export-actions">
@@ -60,6 +61,7 @@ export default function ReportsExport() {
             {products.length
               ? <DataTable searchLabel="Search export products" columns={productColumns} rows={products} />
               : <EmptyState>No product rows are available to export.</EmptyState>}
+            <ScreenLink onNavigate={onNavigate} target="products">Review products in detail</ScreenLink>
           </AnalysisPanel>
           <AnalysisPanel title="Bundle export">
             <div className="analysis-export-actions">
@@ -69,6 +71,7 @@ export default function ReportsExport() {
             {bundles.length
               ? <DataTable searchLabel="Search export bundles" columns={bundleColumns} rows={bundles} />
               : <EmptyState>No bundle rows are available to export.</EmptyState>}
+            <ScreenLink onNavigate={onNavigate} target="bundles">Review bundle opportunities</ScreenLink>
           </AnalysisPanel>
         </>
       }}

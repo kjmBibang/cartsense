@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getAnalysisPayload } from '../api'
+import { InfoTip, ScreenLink } from '../AnalysisScreen.jsx'
 import '../style/executive-dashboard.css'
 
 const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -119,19 +120,19 @@ export default function ExecutiveDashboard({ onNavigate }) {
 
       <div className="dashboard-kpis">
         <article className="kpi-card">
-          <span>Orders</span>
+          <span>Orders <InfoTip text="Distinct shopping baskets in the active analysis scope." /></span>
           <strong>{formatNumber(summary.orders)}</strong>
         </article>
         <article className="kpi-card">
-          <span>Customers</span>
+          <span>Customers <InfoTip text="Distinct customers represented by the active analysis scope." /></span>
           <strong>{formatNumber(summary.customers)}</strong>
         </article>
         <article className="kpi-card">
-          <span>Products</span>
+          <span>Products <InfoTip text="Distinct products appearing in the active analysis scope." /></span>
           <strong>{formatNumber(summary.products)}</strong>
         </article>
         <article className="kpi-card">
-          <span>Reorder rate</span>
+          <span>Reorder rate <InfoTip text="The percentage of analyzed order lines marked as reordered." /></span>
           <strong>{summary.reorderRate ?? 0}%</strong>
         </article>
       </div>
@@ -140,7 +141,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
         <article className="chart-card">
           <div className="chart-heading">
             <div>
-              <h2>Orders by day</h2>
+                <h2>Orders by day <InfoTip text="Shows how many distinct baskets were placed on each day of the week in the active analysis scope." /></h2>
               <p>When customers place orders</p>
             </div>
             <span>orders</span>
@@ -159,12 +160,13 @@ export default function ExecutiveDashboard({ onNavigate }) {
               )
             })}
           </div>
+          <ScreenLink onNavigate={onNavigate} target="behavior">See shopping behavior details</ScreenLink>
         </article>
 
         <article className="chart-card">
           <div className="chart-heading">
             <div>
-              <h2>Top products</h2>
+                <h2>Top products <InfoTip text="Ranks products by the number of distinct baskets in which they appeared." /></h2>
               <p>Most frequently seen in baskets</p>
             </div>
             <span>rows</span>
@@ -185,6 +187,7 @@ export default function ExecutiveDashboard({ onNavigate }) {
               )
             })}
           </div>
+          <ScreenLink onNavigate={onNavigate} target="products">Explore product performance</ScreenLink>
         </article>
       </div>
     </section>

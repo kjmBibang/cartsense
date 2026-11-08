@@ -1,4 +1,4 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 import '../style/association-network.css'
 
 const viewWidth = 900
@@ -11,7 +11,7 @@ function nodePosition(index, count) {
   }
 }
 
-export default function AssociationNetwork() {
+export default function AssociationNetwork({ onNavigate }) {
   return (
     <AnalysisScreen title="Association Network" description="Explore the strongest product links, with a ranked list for precise follow-up when the network gets dense.">
       {(payload) => {
@@ -51,7 +51,7 @@ export default function AssociationNetwork() {
         return <>
           <div className="analysis-grid">
             <MetricCard label="Products with network nodes" value={allNodes.length.toLocaleString()} />
-            <MetricCard label="Relationships available" value={allEdges.length.toLocaleString()} />
+            <MetricCard label="Relationships available" description="Product pairs with an association strong enough to appear in the network payload." value={allEdges.length.toLocaleString()} onClick={() => onNavigate?.('patterns')} />
             <MetricCard label="Relationships in visual" value={visibleEdges.length.toLocaleString()} />
           </div>
           <AnalysisPanel title="Strongest relationship network" description={`Showing up to ${selectedEdges.length} highest-lift edges and ${visibleNodes.length} connected product nodes to keep the visual readable.`}>
@@ -93,6 +93,8 @@ export default function AssociationNetwork() {
                 </ul>}
               </div>
               : <EmptyState>No network relationships are available to visualize.</EmptyState>}
+            <ScreenLink onNavigate={onNavigate} target="patterns">Open rule-level relationship details</ScreenLink>
+            <DetailDisclosure title="How to read the network">Nodes are products, links are observed relationships, and thicker links indicate higher lift. The visual is limited to the strongest available links for readability.</DetailDisclosure>
           </AnalysisPanel>
           <AnalysisPanel title="Ranked relationships" description="Lift ranks the relative association; support and confidence add reach and conditional likelihood.">
             <DataTable

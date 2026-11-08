@@ -1,11 +1,11 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 
 function missingValueCount(values) {
   if (!values || typeof values !== 'object') return null
   return Object.values(values).reduce((total, count) => total + (Number(count) || 0), 0)
 }
 
-export default function ReliabilityReport() {
+export default function ReliabilityReport({ onNavigate }) {
   return (
     <AnalysisScreen title="Reliability Report" description="Review data completeness, rule coverage, and the limits of the current analysis before sharing conclusions.">
       {(payload) => {
@@ -28,7 +28,7 @@ export default function ReliabilityReport() {
 
         return <>
           <div className="analysis-grid">
-            <MetricCard label="Data status" value={reliability.status ?? '—'} />
+            <MetricCard label="Data status" description="Whether the current payload has enough validated data for the reported analysis." value={reliability.status ?? '—'} onClick={() => onNavigate?.('upload')} />
             <MetricCard label="Valid source rows" value={validRows?.toLocaleString() ?? '—'} />
             <MetricCard label="Skipped rows" value={skippedRows?.toLocaleString() ?? '—'} />
             <MetricCard label="Missing-value count" value={missingCount?.toLocaleString() ?? '—'} />
@@ -41,6 +41,7 @@ export default function ReliabilityReport() {
           <div className="analysis-chart-grid">
             <AnalysisPanel title="Source-row validation" description="Valid and skipped row counts reported by the payload.">
               <HorizontalBarChart rows={qualityRows} labelKey="label" valueKey="count" label="Valid and skipped source rows" valueFormat={(value) => `${value.toLocaleString()} rows`} />
+              <ScreenLink onNavigate={onNavigate} target="upload">Review the imported data</ScreenLink>
             </AnalysisPanel>
             <AnalysisPanel title="Evaluation readiness" description="Null values mean that the corresponding score was not calculated.">
               <dl className="analysis-definition-list">
@@ -61,6 +62,9 @@ export default function ReliabilityReport() {
             {validationErrors.length
               ? <DataTable searchLabel="Search validation issues" columns={ [['row', 'Source row'], ['column', 'Column'], ['message', 'Issue']] } rows={validationErrors} />
               : <EmptyState>{quality.validationErrors ? 'No row-level validation issues were reported.' : 'Row-level validation details are not included in this payload.'}</EmptyState>}
+            <DetailDisclosure title="What validation issues mean">
+              Skipped rows failed required-field or range checks during import. Missing optional values remain in the payload but can reduce the reliability of some comparisons.
+            </DetailDisclosure>
           </AnalysisPanel>
           <AnalysisPanel title="Analysis parameters">
             <dl className="analysis-definition-list">

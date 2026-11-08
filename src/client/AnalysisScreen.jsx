@@ -51,12 +51,15 @@ export default function AnalysisScreen({ title, description, children }) {
   )
 }
 
-export function MetricCard({ label, value }) {
+export function MetricCard({ label, value, description, onClick, actionLabel }) {
+  const content = <>
+    <span>{label}{description && <InfoTip text={description} />}</span>
+    <strong>{value ?? '—'}</strong>
+  </>
   return (
-    <article className="analysis-metric">
-      <span>{label}</span>
-      <strong>{value ?? '—'}</strong>
-    </article>
+    onClick
+      ? <button className="analysis-metric analysis-metric-action" type="button" onClick={onClick} aria-label={actionLabel || `${label}: open more detail`}>{content}</button>
+      : <article className="analysis-metric">{content}</article>
   )
 }
 
@@ -64,18 +67,39 @@ export function EmptyState({ children }) {
   return <p className="analysis-empty" role="status">{children}</p>
 }
 
-export function AnalysisPanel({ title, description, children, className = '' }) {
+export function AnalysisPanel({ title, description, children, className = '', titleHelp, action }) {
   return (
     <section className={`analysis-card ${className}`.trim()}>
       <div className="analysis-panel-heading">
         <div>
-          <h2>{title}</h2>
+          <h2>{title}{titleHelp && <InfoTip text={titleHelp} />}</h2>
           {description && <p>{description}</p>}
         </div>
+        {action}
       </div>
       {children}
     </section>
   )
+}
+
+export function InfoTip({ text }) {
+  return <span className="analysis-info-tip" tabIndex="0" aria-label={text}>
+    <span aria-hidden="true">?</span>
+    <span className="analysis-tooltip" role="tooltip">{text}</span>
+  </span>
+}
+
+export function ScreenLink({ children = 'View details', onNavigate, target, className = '' }) {
+  return <button className={`analysis-detail-link ${className}`.trim()} type="button" onClick={() => onNavigate?.(target)}>
+    {children} <span aria-hidden="true">→</span>
+  </button>
+}
+
+export function DetailDisclosure({ title = 'Why this matters', children }) {
+  return <details className="analysis-detail-disclosure">
+    <summary>{title}</summary>
+    <div>{children}</div>
+  </details>
 }
 
 export function HorizontalBarChart({
@@ -84,6 +108,9 @@ export function HorizontalBarChart({
   valueKey,
   label = 'Comparison chart',
   valueFormat = (value) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 2 }),
+  onNavigate,
+  target,
+  detailLabel = 'View related details',
 }) {
   const values = Array.isArray(rows) ? rows : []
   if (!values.length) return <EmptyState>No comparable data is available for this chart.</EmptyState>
@@ -104,6 +131,7 @@ export function HorizontalBarChart({
           </div>
         )
       })}
+      {onNavigate && target && <ScreenLink onNavigate={onNavigate} target={target}>{detailLabel}</ScreenLink>}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, InfoTip } from '../AnalysisScreen.jsx'
 
 const settingLabels = {
   minSupport: 'Minimum support',
@@ -26,7 +26,7 @@ export default function AnalysisSettings() {
         }))
 
         return <>
-          <AnalysisPanel title="Active analysis settings" description="Settings from the current payload; no local controls are connected to the analysis service.">
+          <AnalysisPanel title="Active analysis settings" titleHelp="These values control which patterns qualify for the current published payload." description="Settings from the current payload; no local controls are connected to the analysis service.">
             {settings.length
               ? <DataTable searchable={false} columns={ [['setting', 'Setting'], ['value', 'Current value'], ['parameter', 'Payload field']] } rows={settings} />
               : <EmptyState>No analysis parameters were included in this payload.</EmptyState>}
@@ -41,6 +41,7 @@ export default function AnalysisSettings() {
             </AnalysisPanel>
             <AnalysisPanel title="How settings affect this run">
               <p>Support and confidence thresholds determine which frequent patterns and rules are included. Basket definition and maximum itemset length set the analysis scope. Changing these requires a new backend analysis run; this screen does not submit changes.</p>
+              <DetailDisclosure title="Why these settings matter"><InfoTip text="This help marker is keyboard accessible." /> Lower support finds broader relationships; higher confidence requires a more reliable conditional relationship. The active payload is read-only here.</DetailDisclosure>
             </AnalysisPanel>
           </div>
         </>

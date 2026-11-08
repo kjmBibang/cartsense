@@ -1,10 +1,10 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 
 function ruleName(rule) {
   return `${rule.antecedentProductName ?? '—'} + ${rule.consequentProductName ?? '—'}`
 }
 
-export default function BundleOpportunities() {
+export default function BundleOpportunities({ onNavigate }) {
   return (
     <AnalysisScreen title="Bundle Opportunities" description="Prioritize product pairings for cross-sell placement, promotions, and in-store follow-up.">
       {(payload) => {
@@ -28,7 +28,7 @@ export default function BundleOpportunities() {
           <div className="analysis-grid">
             <MetricCard label="Pairing opportunities" value={rules.length.toLocaleString()} />
             <MetricCard label="Pairings with lift above 1" value={highLiftCount.toLocaleString()} />
-            <MetricCard label="Strongest observed lift" value={strongest ? `${Number(strongest.lift).toLocaleString(undefined, { maximumFractionDigits: 2 })}×` : '—'} />
+            <MetricCard label="Strongest observed lift" description="How much more often the strongest pair appears together than independence would suggest." value={strongest ? `${Number(strongest.lift).toLocaleString(undefined, { maximumFractionDigits: 2 })}×` : '—'} onClick={() => onNavigate?.('patterns')} />
             <MetricCard label="Minimum support used" value={payload.parameters?.minSupport == null ? '—' : `${(Number(payload.parameters.minSupport) * 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`} />
           </div>
           <AnalysisPanel title="Highest-lift pairings" description="Ranked by lift, with support shown to keep small-sample pairings in context.">
@@ -39,6 +39,7 @@ export default function BundleOpportunities() {
               label="Top product pairings by lift"
               valueFormat={(value) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}× lift`}
             />
+            <ScreenLink onNavigate={onNavigate} target="patterns">Read the association rules</ScreenLink>
           </AnalysisPanel>
           <AnalysisPanel title="What to act on">
             {strongest
@@ -48,6 +49,9 @@ export default function BundleOpportunities() {
                 <li><strong>Interpretation:</strong> Lift above 1 indicates a pairing observed more often than independence would suggest; high lift alone does not establish broad demand.</li>
               </ul>
               : <EmptyState>No bundle rules were produced for this analysis.</EmptyState>}
+            <DetailDisclosure title="How to interpret this opportunity">
+              Lift describes relative association, support describes reach across baskets, and confidence describes the chance of the second product when the first is present. Use all three before acting.
+            </DetailDisclosure>
           </AnalysisPanel>
           <AnalysisPanel title="Ranked opportunity table" description="Higher lift ranks first; support and confidence provide reach and reliability context.">
             <DataTable

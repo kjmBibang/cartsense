@@ -1,4 +1,5 @@
 import { parse } from 'csv-parse/sync'
+import { createHash } from 'node:crypto'
 import pool, { withTransaction } from '../config/database.js'
 
 const duplicateConstraintName = 'order_lines_import_order_product_idx'
@@ -44,6 +45,7 @@ function validateRow(row, rowNumber) {
 }
 
 export async function importOrders(file) {
+  const fileSha256 = createHash('sha256').update(file.buffer).digest('hex')
   let records
   try {
     records = parse(file.buffer, { columns: true, skip_empty_lines: true, trim: true, bom: true })
@@ -70,12 +72,34 @@ export async function importOrders(file) {
   const validRows = records.filter((_row, index) => !validationErrors.some((item) => item.row === index + 2))
   let result
   try {
+    const [existingRows] = await pool.execute(
+      `SELECT id, original_filename AS filename, status, total_rows AS totalRows,
+              imported_rows AS importedRows, skipped_rows AS skippedRows,
+              validation_errors AS validationErrors, created_at AS createdAt
+       FROM imports WHERE file_sha256 = ? LIMIT 1`,
+      [fileSha256],
+    )
+    if (existingRows[0]) {
+      let existingValidationErrors = existingRows[0].validationErrors
+      if (typeof existingValidationErrors === 'string') {
+        try { existingValidationErrors = JSON.parse(existingValidationErrors) } catch { existingValidationErrors = [] }
+      }
+      return {
+        importId: existingRows[0].id,
+        filename: existingRows[0].filename,
+        totalRows: Number(existingRows[0].totalRows || 0),
+        importedRows: Number(existingRows[0].importedRows || 0),
+        skippedRows: Number(existingRows[0].skippedRows || 0),
+        validationErrors: Array.isArray(existingValidationErrors) ? existingValidationErrors : [],
+        duplicate: true,
+      }
+    }
     await removeLegacyDuplicateConstraint()
     result = await withTransaction(async (connection) => {
     const [importResult] = await connection.execute(
-      `INSERT INTO imports (original_filename, total_rows, skipped_rows, validation_errors)
-       VALUES (?, ?, ?, ?)`,
-      [file.originalname, records.length, validationErrors.length, JSON.stringify(validationErrors)],
+      `INSERT INTO imports (original_filename, total_rows, skipped_rows, validation_errors, file_sha256)
+       VALUES (?, ?, ?, ?, ?)`,
+      [file.originalname, records.length, validationErrors.length, JSON.stringify(validationErrors), fileSha256],
     )
     const importId = importResult.insertId
 

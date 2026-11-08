@@ -6,6 +6,7 @@ CartSense is a React/Vite client with an Express API for importing grocery order
 
 1. Start **MySQL** in the XAMPP Control Panel. The default configuration used here is `localhost:3306`, user `root`, with an empty password.
 2. In phpMyAdmin, open the SQL tab and run [`server/sql/schema.sql`](server/sql/schema.sql) to create the `cartsense` database and tables. The API cannot import uploads until this step is complete.
+	For an existing CartSense database, also run [`server/sql/migrations/003_add_upload_hash.sql`](server/sql/migrations/003_add_upload_hash.sql) once. This adds the file fingerprint used to prevent identical CSV uploads from being counted twice.
 3. Copy `.env.example` to `.env`. Change `DB_PORT` or `DB_PASSWORD` if your XAMPP installation differs.
 4. Install dependencies with `npm install`.
 5. Start both applications with `npm run dev:full`.
@@ -19,6 +20,10 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 - `GET /api/health` checks Express and MySQL.
 - `POST /api/uploads/orders` accepts a CSV in the multipart `file` field and returns a `jobId` with status `202`. Poll `GET /api/uploads/orders/:jobId` until it returns `completed` or `failed`. Invalid rows are skipped and returned in `validationErrors`; valid rows are imported transactionally. Uploads are limited to 100 MB by default; change `MAX_UPLOAD_SIZE_MB` in `.env` for larger POS exports.
 - `GET /api/analysis/summary?importId=1` returns order, customer, product, basket, reorder, day, and hour metrics.
+- `GET /api/analysis/imports` returns every stored upload and its import totals.
+- `GET /api/analysis/data-check?importIds=1,2&orderDow=4&orderHour=21&department=produce&search=milk` queries the selected imports directly from MySQL. The upload screen uses this route for cumulative totals and grouped product rows; `orderDow`, `orderHour`, `department`, and `search` are optional filters.
+- `POST /api/analysis/scope-analysis` with `{ "importIds": [1, 2] }` regenerates the shared analysis payload from the selected database imports. All analysis screens follow this selected scope; the upload screen's day/hour/department/product filters remain local to its data check.
+- The upload screen persists its selected import IDs in browser storage, so leaving and returning to the screen keeps the same scope. Clearing every selection removes the shared payload and makes the other analysis screens show their empty state.
 - `GET /api/analysis/products?importId=1` returns product order counts and reorder rates.
 - `GET /api/analysis/departments?importId=1` returns department totals.
 - `GET /api/analysis/bundles?importId=1&minSupport=0.05` returns order-level product pairs with support, confidence, and lift.
@@ -26,7 +31,7 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 - `GET /api/analysis/payload` returns the latest stored Python payload for the frontend.
 - `GET /api/analysis/payload/status` reports whether a payload is available without returning the full artifact.
 
-The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen polls the processing job, reports that row after completion, and refreshes every analysis screen from the generated Python payload.
+The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen polls the processing job, reports that row after completion, retains every completed CSV in MySQL-backed upload history, and lets you select and filter stored imports. Identical file contents are recognized by SHA-256 and are not imported twice.
 
 ## Python analysis payload
 

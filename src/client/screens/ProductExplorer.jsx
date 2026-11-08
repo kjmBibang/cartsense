@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 
-export default function ProductExplorer() {
+export default function ProductExplorer({ onNavigate }) {
   const [department, setDepartment] = useState('')
   const [reorderFilter, setReorderFilter] = useState('')
 
@@ -37,6 +37,7 @@ export default function ProductExplorer() {
           </div>
           <AnalysisPanel title="Top products by orders" description="Products appearing in more orders may warrant availability protection or placement support.">
             <HorizontalBarChart rows={topProducts} labelKey="productName" valueKey="orders" label="Top products ranked by number of orders" />
+            <ScreenLink onNavigate={onNavigate} target="departments">Compare product departments</ScreenLink>
           </AnalysisPanel>
           <AnalysisPanel title="Product performance" description="Use order reach, units, reorder rate, and cart position together to prioritize follow-up.">
             <div className="analysis-filters">

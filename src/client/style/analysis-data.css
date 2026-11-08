@@ -71,6 +71,109 @@
   line-height: 1.55;
 }
 
+.analysis-info-tip {
+  position: relative;
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  margin-left: 7px;
+  place-items: center;
+  border: 1px solid #94a3b8;
+  border-radius: 50%;
+  color: #475569;
+  cursor: help;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 2px;
+}
+
+.analysis-tooltip {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  width: 220px;
+  padding: 9px 10px;
+  border: 1px solid #334155;
+  border-radius: var(--radius-card);
+  color: #fff;
+  background: #1e293b;
+  box-shadow: 0 8px 20px rgb(15 23 42 / 16%);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.45;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.analysis-info-tip:hover .analysis-tooltip,
+.analysis-info-tip:focus .analysis-tooltip,
+.analysis-info-tip:focus-within .analysis-tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.analysis-info-tip:focus-visible,
+.analysis-detail-link:focus-visible,
+.analysis-detail-disclosure summary:focus-visible,
+.analysis-metric-action:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+.analysis-detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  color: var(--color-primary);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.analysis-detail-link:hover {
+  text-decoration: underline;
+}
+
+.analysis-detail-disclosure {
+  border-top: 1px solid var(--color-border);
+  color: var(--color-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.analysis-detail-disclosure summary {
+  padding: 11px 0;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.analysis-detail-disclosure div {
+  padding: 0 0 12px;
+}
+
+.analysis-metric-action {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.analysis-metric-action:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
 .analysis-empty {
   margin: 0;
   padding: 14px;

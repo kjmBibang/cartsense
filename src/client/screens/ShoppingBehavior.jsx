@@ -1,4 +1,4 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
 
 const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const formatHour = (hour) => `${String(hour).padStart(2, '0')}:00`
@@ -33,10 +33,10 @@ export default function ShoppingBehavior() {
           </div>
           <div className="analysis-chart-grid">
             <AnalysisPanel title="Orders by day" description="Observed order volume by weekday.">
-              <HorizontalBarChart rows={byDay} labelKey="label" valueKey="orders" label="Orders by day of week" />
+              <HorizontalBarChart rows={byDay} labelKey="label" valueKey="orders" label="Orders by day of week" detailLabel="See weekday observations below" />
             </AnalysisPanel>
             <AnalysisPanel title="Orders by hour" description="Observed order volume by hour of day.">
-              <HorizontalBarChart rows={byHour} labelKey="label" valueKey="orders" label="Orders by hour" />
+              <HorizontalBarChart rows={byHour} labelKey="label" valueKey="orders" label="Orders by hour" detailLabel="See hour observations below" />
             </AnalysisPanel>
           </div>
           {(peakDay || peakHour) && <div className="analysis-insight-strip">
@@ -48,6 +48,7 @@ export default function ShoppingBehavior() {
               {basketSizes.length
                 ? <HorizontalBarChart rows={basketSizes} labelKey="size" valueKey="orders" label="Orders by basket size" valueFormat={(value) => `${value.toLocaleString()} orders`} />
                 : <EmptyState>Basket-size distribution is not available in this payload.</EmptyState>}
+              <DetailDisclosure title="How to read basket size">This distribution counts baskets by the number of items they contain. It describes observed shopping behavior, not a forecast of future basket size.</DetailDisclosure>
             </AnalysisPanel>
             <AnalysisPanel title="Reordered items" description="Counts distinguish items marked as reorders from first-time items.">
               {reorders.length

@@ -155,6 +155,10 @@ export async function saveAnalysisPayload(payload) {
   return receipt(completePayload, new Date().toISOString())
 }
 
+export async function clearAnalysisPayload() {
+  await rm(payloadPath(), { force: true })
+}
+
 export async function readAnalysisPayload() {
   try {
     let payload

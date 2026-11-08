@@ -1,8 +1,15 @@
 import { Router } from 'express'
 import pool from '../config/database.js'
-import { getAnalysisPayloadStatus, readAnalysisPayload, saveAnalysisPayload } from '../services/analysisPayload.js'
+import { clearAnalysisPayload, getAnalysisPayloadStatus, readAnalysisPayload, saveAnalysisPayload } from '../services/analysisPayload.js'
+import { publishAnalysisForImports } from '../services/analysisPipeline.js'
 
 const router = Router()
+const scopeJobs = new Map()
+let latestScopeJobId = null
+
+function updateScopeJob(jobId, update) {
+  scopeJobs.set(jobId, { ...scopeJobs.get(jobId), ...update, updatedAt: new Date().toISOString() })
+}
 
 router.post('/payload', async (request, response, next) => {
   try {
@@ -26,6 +33,50 @@ router.get('/payload/status', async (_request, response, next) => {
   } catch (error) {
     return next(error)
   }
+})
+
+router.delete('/payload', async (_request, response, next) => {
+  try {
+    latestScopeJobId = null
+    await clearAnalysisPayload()
+    return response.status(204).end()
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.post('/scope-analysis', async (request, response, next) => {
+  const rawIds = request.body?.importIds
+  if (!Array.isArray(rawIds) || !rawIds.length || rawIds.length > 100
+      || rawIds.some((value) => !Number.isSafeInteger(value) || value <= 0)) {
+    return response.status(400).json({ error: 'importIds must be a non-empty array of at most 100 positive integers.' })
+  }
+  const importIds = [...new Set(rawIds)]
+  try {
+    const placeholders = importIds.map(() => '?').join(', ')
+    const [imports] = await pool.execute(
+      `SELECT id FROM imports WHERE id IN (${placeholders}) AND status = 'completed'`,
+      importIds,
+    )
+    if (imports.length !== importIds.length) return response.status(404).json({ error: 'One or more selected imports were not found or are not completed.' })
+    const jobId = `scope-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    latestScopeJobId = jobId
+    scopeJobs.set(jobId, { jobId, status: 'queued', progress: 0, message: 'Selected analysis queued', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+    void publishAnalysisForImports(importIds, (update) => updateScopeJob(jobId, update), () => latestScopeJobId === jobId)
+      .then((receipt) => updateScopeJob(jobId, receipt
+        ? { status: 'completed', progress: 100, message: 'Selected analysis published', receipt }
+        : { status: 'cancelled', progress: 100, message: 'A newer selection replaced this analysis job.' }))
+      .catch((error) => updateScopeJob(jobId, { status: 'failed', progress: 100, message: error.message || 'Selected analysis failed.' }))
+    return response.status(202).json({ jobId, status: 'queued', progress: 0 })
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/scope-analysis/:jobId', (request, response) => {
+  const job = scopeJobs.get(request.params.jobId)
+  if (!job) return response.status(404).json({ error: 'Scope analysis job was not found.' })
+  return response.json(job)
 })
 
 function importId(request) {
@@ -53,6 +104,132 @@ function queryInteger(value, fallback, minimum, maximum, name, response) {
   }
   return parsed
 }
+
+function queryImportIds(request, response) {
+  const raw = request.query.importIds
+  if (raw === undefined) return null
+  if (typeof raw !== 'string' || !raw.trim()) {
+    response.status(400).json({ error: 'importIds must be a comma-separated list of positive integers.' })
+    return false
+  }
+  const values = raw.split(',').map((value) => Number(value))
+  if (values.length > 100 || values.some((value) => !Number.isSafeInteger(value) || value <= 0)) {
+    response.status(400).json({ error: 'importIds must contain at most 100 positive integers.' })
+    return false
+  }
+  return [...new Set(values)]
+}
+
+function queryText(value, maximum, name, response) {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || value.length > maximum) {
+    response.status(400).json({ error: `${name} must be a string of at most ${maximum} characters.` })
+    return null
+  }
+  return value
+}
+
+router.get('/imports', async (_request, response, next) => {
+  try {
+    const [rows] = await pool.execute(
+      `SELECT id, original_filename AS filename, status, total_rows AS totalRows,
+              imported_rows AS importedRows, skipped_rows AS skippedRows, created_at AS createdAt
+       FROM imports ORDER BY created_at DESC, id DESC`,
+    )
+    return response.json(rows.map((row) => ({
+      ...row,
+      id: Number(row.id),
+      totalRows: Number(row.totalRows || 0),
+      importedRows: Number(row.importedRows || 0),
+      skippedRows: Number(row.skippedRows || 0),
+    })))
+  } catch (error) {
+    return next(error)
+  }
+})
+
+router.get('/data-check', async (request, response, next) => {
+  const importIds = queryImportIds(request, response)
+  if (importIds === false) return
+  const orderDow = queryInteger(request.query.orderDow, null, 0, 6, 'orderDow', response)
+  if (orderDow === null && request.query.orderDow !== undefined) return
+  const orderHour = queryInteger(request.query.orderHour, null, 0, 23, 'orderHour', response)
+  if (orderHour === null && request.query.orderHour !== undefined) return
+  const department = queryText(request.query.department, 255, 'department', response)
+  if (department === null) return
+  const search = queryText(request.query.search, 100, 'search', response)
+  if (search === null) return
+  const limit = queryInteger(request.query.limit, 100, 1, 500, 'limit', response)
+  if (limit === null) return
+
+  try {
+    const selectedIds = importIds || []
+    if (!selectedIds.length) return response.json({ importIds: [], summary: { orders: 0, customers: 0, products: 0, items: 0 }, rows: [] })
+
+    const placeholders = selectedIds.map(() => '?').join(', ')
+    const filters = [`ol.import_id IN (${placeholders})`]
+    const filterParams = [...selectedIds]
+    if (orderDow !== null) {
+      filters.push('ol.order_dow = ?')
+      filterParams.push(orderDow)
+    }
+    if (orderHour !== null) {
+      filters.push('ol.order_hour_of_day = ?')
+      filterParams.push(orderHour)
+    }
+    if (department !== undefined && department !== '') {
+      filters.push('ol.department = ?')
+      filterParams.push(department)
+    }
+    if (search) {
+      filters.push('(ol.product_name LIKE ? OR CAST(ol.product_id AS CHAR) LIKE ?)')
+      const escapedSearch = search.replace(/[\\%_]/g, '\\$&')
+      filterParams.push(`%${escapedSearch}%`, `%${escapedSearch}%`)
+    }
+    const where = filters.join(' AND ')
+    const [[summary]] = await pool.execute(
+      `SELECT COUNT(DISTINCT CONCAT(ol.import_id, ':', ol.order_id)) AS orders,
+              COUNT(DISTINCT CONCAT(ol.import_id, ':', ol.user_id)) AS customers,
+              COUNT(DISTINCT ol.product_id) AS products,
+              COUNT(*) AS items
+       FROM order_lines ol WHERE ${where}`,
+      filterParams,
+    )
+    const [rows] = await pool.execute(
+      `SELECT ol.import_id AS importId, i.original_filename AS filename,
+              ol.product_id AS productId, ol.product_name AS productName,
+              ol.department, ol.order_dow AS orderDow, ol.order_hour_of_day AS orderHour,
+              COUNT(*) AS units,
+              COUNT(DISTINCT CONCAT(ol.import_id, ':', ol.order_id)) AS orders,
+              AVG(ol.reordered) * 100 AS reorderRate
+       FROM order_lines ol
+       JOIN imports i ON i.id = ol.import_id
+       WHERE ${where}
+       GROUP BY ol.import_id, i.original_filename, ol.product_id, ol.product_name,
+                ol.department, ol.order_dow, ol.order_hour_of_day
+       ORDER BY i.original_filename, units DESC, ol.product_name
+       LIMIT ?`,
+      [...filterParams, limit],
+    )
+    const numeric = (value) => Number(value || 0)
+    return response.json({
+      importIds: selectedIds,
+      summary: Object.fromEntries(['orders', 'customers', 'products', 'items'].map((key) => [key, numeric(summary[key])])),
+      rows: rows.map((row) => ({
+        ...row,
+        importId: numeric(row.importId),
+        productId: numeric(row.productId),
+        orderDow: row.orderDow === null ? null : numeric(row.orderDow),
+        orderHour: row.orderHour === null ? null : numeric(row.orderHour),
+        units: numeric(row.units),
+        orders: numeric(row.orders),
+        reorderRate: Number(Number(row.reorderRate || 0).toFixed(1)),
+      })),
+    })
+  } catch (error) {
+    return next(error)
+  }
+})
 
 router.get('/summary', async (request, response, next) => {
   const currentImportId = requireImportId(request, response)

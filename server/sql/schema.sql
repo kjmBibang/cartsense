@@ -12,8 +12,10 @@ CREATE TABLE IF NOT EXISTS imports (
   imported_rows INT UNSIGNED NOT NULL DEFAULT 0,
   skipped_rows INT UNSIGNED NOT NULL DEFAULT 0,
   validation_errors JSON NULL,
+  file_sha256 CHAR(64) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY imports_file_sha256_unique (file_sha256),
   KEY imports_created_at_idx (created_at)
 ) ENGINE=InnoDB;
 

@@ -1,6 +1,6 @@
-import AnalysisScreen, { AnalysisPanel, DataTable, EmptyState, HorizontalBarChart, MetricCard } from '../AnalysisScreen.jsx'
+import AnalysisScreen, { AnalysisPanel, DataTable, DetailDisclosure, EmptyState, HorizontalBarChart, MetricCard, ScreenLink } from '../AnalysisScreen.jsx'
 
-export default function BuyingPatterns() {
+export default function BuyingPatterns({ onNavigate }) {
   return (
     <AnalysisScreen title="Buying Patterns" description="Separate products that are merely common from products that are meaningfully associated in baskets.">
       {(payload) => {
@@ -39,6 +39,7 @@ export default function BuyingPatterns() {
               label="Strongest association rules by lift"
               valueFormat={(value) => `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}× lift`}
             />
+            <ScreenLink onNavigate={onNavigate} target="bundles">See bundle opportunities</ScreenLink>
           </AnalysisPanel>
           <AnalysisPanel title="Reading the results">
             {strongest
@@ -48,6 +49,9 @@ export default function BuyingPatterns() {
                 <li><strong>Sales follow-up:</strong> Use confidence for the chance of the consequent given the antecedent, and support to assess how many baskets the rule reaches. Review all three before acting.</li>
               </ul>
               : <EmptyState>No association rules are available. The analysis may not have found a qualifying relationship.</EmptyState>}
+            <DetailDisclosure title="Support, confidence, and lift">
+              Support is the share of baskets containing the relationship. Confidence is the chance of the consequent given the antecedent. Lift compares the observed relationship with an independence baseline.
+            </DetailDisclosure>
           </AnalysisPanel>
           <AnalysisPanel title="Association rules" description="Sortable and searchable; percentages reflect the payload's rule values.">
             <DataTable

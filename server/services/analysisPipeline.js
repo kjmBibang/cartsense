@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { saveAnalysisPayload } from './analysisPayload.js'
+import pool from '../config/database.js'
 
 const repositoryPythonPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../python')
 
@@ -53,6 +54,39 @@ function runPythonAnalysis(inputPath, outputPath) {
   })
 }
 
+function csvValue(value) {
+  const text = value === null || value === undefined ? '' : String(value)
+  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+async function publishGeneratedAnalysis(inputPath, outputPath, metadata = {}, shouldPublish = () => true) {
+  await runPythonAnalysis(inputPath, outputPath)
+  let payload
+  try {
+    payload = JSON.parse(await readFile(outputPath, 'utf8'))
+  } catch (error) {
+    throw pipelineError(`Python analysis produced an invalid payload: ${error.message}`, error, 'payload_validation')
+  }
+  if (metadata.importIds) {
+    payload.importIds = metadata.importIds
+    payload.sources = metadata.sources
+    payload.source = metadata.sources.join(', ')
+    payload.dataQuality = {
+      ...payload.dataQuality,
+      source: payload.source,
+      importIds: metadata.importIds,
+      sources: metadata.sources,
+    }
+  }
+  if (!shouldPublish()) return null
+  try {
+    return await saveAnalysisPayload(payload)
+  } catch (error) {
+    if (error.statusCode === 400) error.stage = 'payload_validation'
+    throw pipelineError(`The analysis payload could not be published: ${error.message}`, error, 'payload_publication')
+  }
+}
+
 export async function publishAnalysisForUpload(file, onStatus = () => {}, importResult = null) {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'cartsense-analysis-'))
   const inputPath = path.join(directory, path.basename(file.originalname || 'orders.csv'))
@@ -61,11 +95,9 @@ export async function publishAnalysisForUpload(file, onStatus = () => {}, import
   try {
     await writeFile(inputPath, file.buffer)
     onStatus({ status: 'analyzing', progress: 65, message: 'Running basket analysis' })
-    await runPythonAnalysis(inputPath, outputPath)
     let payload
-    try {
-      payload = JSON.parse(await readFile(outputPath, 'utf8'))
-    } catch (error) {
+    await runPythonAnalysis(inputPath, outputPath)
+    try { payload = JSON.parse(await readFile(outputPath, 'utf8')) } catch (error) {
       throw pipelineError(`Python analysis produced an invalid payload: ${error.message}`, error, 'payload_validation')
     }
     if (importResult) {
@@ -115,6 +147,52 @@ export async function publishAnalysisForUpload(file, onStatus = () => {}, import
   } catch (error) {
     if (error.stage) throw error
     throw pipelineError('The analysis payload could not be published.', error, 'payload_publication')
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+}
+
+export async function publishAnalysisForImports(importIds, onStatus = () => {}, shouldPublish = () => true) {
+  const placeholders = importIds.map(() => '?').join(', ')
+  const [rows] = await pool.execute(
+    `SELECT ol.import_id AS importId, ol.order_id AS orderId, ol.user_id AS userId,
+            ol.order_number AS orderNumber, ol.order_dow AS orderDow,
+            ol.order_hour_of_day AS orderHour, ol.days_since_prior_order AS daysSincePriorOrder,
+            ol.product_id AS productId, ol.product_name AS productName,
+            ol.department, ol.reordered, ol.add_to_cart_order AS addToCartOrder,
+            i.original_filename AS filename
+     FROM order_lines ol JOIN imports i ON i.id = ol.import_id
+     WHERE ol.import_id IN (${placeholders}) AND i.status = 'completed'
+     ORDER BY ol.import_id, ol.order_id, ol.add_to_cart_order, ol.id`,
+    importIds,
+  )
+  if (!rows.length) {
+    const error = new Error('The selected imports contain no completed rows.')
+    error.statusCode = 404
+    throw error
+  }
+
+  const sources = [...new Set(rows.map((row) => row.filename))]
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'cartsense-scope-'))
+  const inputPath = path.join(directory, 'selected-orders.csv')
+  const outputPath = path.join(directory, 'analysis-payload.json')
+  const headers = ['order_id', 'user_id', 'order_number', 'order_dow', 'order_hour_of_day', 'days_since_prior_order', 'product_id', 'add_to_cart_order', 'reordered', 'department', 'product_name']
+  const csvRows = rows.map((row) => [
+    Number(row.importId) * 10000000000000 + Number(row.orderId),
+    Number(row.importId) * 1000000000 + Number(row.userId),
+    row.orderNumber, row.orderDow, row.orderHour, row.daysSincePriorOrder,
+    row.productId, row.addToCartOrder, row.reordered, row.department, row.productName,
+  ].map(csvValue).join(','))
+
+  try {
+    await writeFile(inputPath, `${headers.join(',')}\n${csvRows.join('\n')}\n`, 'utf8')
+    onStatus({ status: 'analyzing', progress: 50, message: 'Analyzing the selected CSV imports' })
+    const receipt = await publishGeneratedAnalysis(inputPath, outputPath, { importIds, sources }, shouldPublish)
+    onStatus({ status: 'completed', progress: 100, message: 'Selected import analysis published' })
+    return receipt
+  } catch (error) {
+    if (error.stage) throw error
+    throw pipelineError('The selected import analysis could not be published.', error, 'payload_publication')
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

@@ -42,11 +42,74 @@
       "size_mib": 11.3
     },
     {
-      "file": "POSmock5.csv",
-      "rows": 199907,
-      "orders": 19749,
-      "users": 10386,
-      "size_mib": 11.3
+      "file": "POSmock7.csv",
+      "rows": 20000,
+      "orders": 1997,
+      "users": 1839,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock8.csv",
+      "rows": 19993,
+      "orders": 2012,
+      "users": 1824,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock9.csv",
+      "rows": 19991,
+      "orders": 1970,
+      "users": 1810,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock10.csv",
+      "rows": 19998,
+      "orders": 2003,
+      "users": 1819,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock11.csv",
+      "rows": 19998,
+      "orders": 1925,
+      "users": 1770,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock12.csv",
+      "rows": 19998,
+      "orders": 2001,
+      "users": 1832,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock13.csv",
+      "rows": 19999,
+      "orders": 1977,
+      "users": 1813,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock14.csv",
+      "rows": 19996,
+      "orders": 1934,
+      "users": 1775,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock15.csv",
+      "rows": 19996,
+      "orders": 1965,
+      "users": 1808,
+      "size_mib": 1.1
+    },
+    {
+      "file": "POSmock16.csv",
+      "rows": 19938,
+      "orders": 1965,
+      "users": 1791,
+      "size_mib": 1.1
     },
     {
       "file": "POSmock6.csv",

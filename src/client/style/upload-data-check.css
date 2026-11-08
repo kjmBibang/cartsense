@@ -223,6 +223,206 @@
   line-height: 1.5;
 }
 
+.upload-history,
+.upload-data-check {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.upload-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.upload-section-heading h2 {
+  margin: 0 0 5px;
+  color: var(--color-text);
+  font-size: 18px;
+}
+
+.upload-section-heading p,
+.upload-empty,
+.upload-loading {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: 13px;
+}
+
+.upload-scope-status {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #60a5fa;
+  color: var(--color-secondary);
+  background: #eff6ff;
+  font-size: 13px;
+}
+
+.upload-history-count,
+.upload-import-status {
+  flex: 0 0 auto;
+  color: var(--color-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.upload-import-list {
+  display: grid;
+  gap: 8px;
+}
+
+.upload-import-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.upload-import-item.is-selected {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.upload-import-item input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-primary);
+}
+
+.upload-import-main {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.upload-import-main strong,
+.upload-import-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.upload-import-main strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.upload-import-main small,
+.upload-import-stat {
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+
+.upload-import-status.is-completed {
+  color: #166534;
+}
+
+.upload-import-status.is-processing {
+  color: #92400e;
+}
+
+.upload-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-filters label {
+  display: grid;
+  gap: 6px;
+  color: var(--color-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.upload-filters input,
+.upload-filters select {
+  min-width: 0;
+  min-height: 38px;
+  padding: 7px 9px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  color: var(--color-text);
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+}
+
+.upload-filters input:focus,
+.upload-filters select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.upload-data-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.upload-data-summary span {
+  display: grid;
+  gap: 3px;
+  padding: 12px;
+  border-left: 3px solid #93c5fd;
+  color: var(--color-secondary);
+  background: #f8fafc;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.upload-data-summary strong {
+  color: var(--color-text);
+  font-size: 20px;
+}
+
+.upload-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+}
+
+.upload-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.upload-table th,
+.upload-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.upload-table th {
+  color: var(--color-secondary);
+  background: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.upload-table td {
+  color: var(--color-text);
+}
+
+.upload-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 @media (max-width: 900px) {
   .upload-screen {
     grid-column: 2 / span 10;
@@ -245,5 +445,29 @@
 
   .upload-panel {
     padding: 16px;
+  }
+
+  .upload-history,
+  .upload-data-check {
+    padding: 16px;
+  }
+
+  .upload-section-heading,
+  .upload-import-item {
+    align-items: flex-start;
+  }
+
+  .upload-import-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .upload-import-stat,
+  .upload-import-status {
+    grid-column: 2;
+  }
+
+  .upload-filters,
+  .upload-data-summary {
+    grid-template-columns: 1fr 1fr;
   }
 }
