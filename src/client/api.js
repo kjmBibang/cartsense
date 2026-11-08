@@ -44,3 +44,53 @@ export async function getAnalysisPayloadStatus() {
   if (!response.ok) throw new Error(payload.error || 'Could not load payload status.')
   return payload
 }
+
+export async function clearAnalysisPayload() {
+  const response = await fetch('/api/analysis/payload', { method: 'DELETE' })
+  if (!response.ok) {
+    const payload = await response.json()
+    throw new Error(payload.error || 'Could not clear the analysis payload.')
+  }
+}
+
+export async function getImportHistory() {
+  const response = await fetch('/api/analysis/imports')
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || 'Could not load upload history.')
+  return payload
+}
+
+export async function getDataCheck(filters) {
+  const params = new URLSearchParams()
+  if (filters.importIds?.length) params.set('importIds', filters.importIds.join(','))
+  if (filters.orderDow !== '') params.set('orderDow', filters.orderDow)
+  if (filters.orderHour !== '') params.set('orderHour', filters.orderHour)
+  if (filters.department.trim()) params.set('department', filters.department.trim())
+  if (filters.search.trim()) params.set('search', filters.search.trim())
+  params.set('limit', '500')
+  const response = await fetch(`/api/analysis/data-check?${params}`)
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || 'Could not load database data.')
+  return payload
+}
+
+export async function publishSelectedAnalysis(importIds) {
+  const response = await fetch('/api/analysis/scope-analysis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ importIds }),
+  })
+  const payload = await response.json()
+  if (!response.ok) throw new Error(payload.error || 'Could not start selected analysis.')
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < 15 * 60 * 1000) {
+    await new Promise((resolve) => window.setTimeout(resolve, 1000))
+    const statusResponse = await fetch(`/api/analysis/scope-analysis/${encodeURIComponent(payload.jobId)}`)
+    const statusPayload = await statusResponse.json()
+    if (!statusResponse.ok) throw new Error(statusPayload.error || 'Could not load selected analysis status.')
+    if (statusPayload.status === 'failed') throw new Error(statusPayload.message || 'Selected analysis failed.')
+    if (statusPayload.status === 'cancelled') throw new Error('Selected analysis was replaced by a newer import selection.')
+    if (statusPayload.status === 'completed') return statusPayload.receipt
+  }
+  throw new Error('Selected analysis timed out. Check the API logs before retrying.')
+}

@@ -42,6 +42,20 @@ app.use((error, _request, response, next) => {
   if (error.code === 'ER_BAD_DB_ERROR') {
     error = databaseSetupError()
   }
+  if (error.code === 'ER_NO_SUCH_TABLE') {
+    return response.status(503).json({
+      error: 'CartSense database tables are not initialized. Run server/sql/schema.sql in MySQL or phpMyAdmin, then restart the API.',
+      stage: 'database_initialization',
+    })
+  }
+  const unavailableDatabaseCodes = new Set([
+    'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'ENOTFOUND',
+    'PROTOCOL_CONNECTION_LOST', 'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR',
+    'ER_CON_COUNT_ERROR', 'ER_SERVER_SHUTDOWN',
+  ])
+  if (unavailableDatabaseCodes.has(error.code)) {
+    return response.status(503).json({ error: 'CartSense database is unavailable.', stage: 'database_initialization' })
+  }
   if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
     return response.status(400).json({ error: 'Request body must contain valid JSON.' })
   }
