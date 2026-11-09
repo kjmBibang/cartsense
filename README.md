@@ -34,62 +34,6 @@ Check the connection at `http://localhost:3001/api/health`. It reports `database
 
 The Python analysis uses a reproducible order-level recommendation pipeline: validation, preprocessing, user-disjoint split, Apriori mining, top-k recommendation with popularity fallback, and holdout evaluation. Its default minimum confidence is `0.2`. Reliability metrics include rule coverage, Hit Rate@K, Recall@K, MRR, and a popularity baseline; these are recommendation metrics, not supervised classification accuracy.
 
-The sample file at [`public/mock-data/cart-sense-orders.csv`](public/mock-data/cart-sense-orders.csv) contains one intentionally invalid row with a missing `order_id`. The upload screen polls the processing job, reports that row after completion, retains every completed CSV in MySQL-backed upload history, and lets you select and filter stored imports. Identical file contents are recognized by SHA-256 and are not imported twice.
-
-## Python analysis payload
-
-The reusable analysis runtime lives in [`python/cartsense_analysis`](python/cartsense_analysis). It generates a versioned JSON payload for the future backend without requiring a notebook session:
-
-```powershell
-python -m pip install -e ".[dev]"
-python -m cartsense_analysis --input public/mock-data/cart-sense-orders.csv --output analysis.json
-```
-
-The Python package uses one basket per order for Apriori rules, bundles, and network edges. The notebook remains the exploratory reference; the generated payload is the integration boundary for later Express wiring.
-
-The clean reproducible evaluation notebook is [`notebooks/CartSense_Apriori_Evaluation.ipynb`](notebooks/CartSense_Apriori_Evaluation.ipynb). It runs against [`public/dataset/modeldataset.csv`](public/dataset/modeldataset.csv) and contains the same pipeline stages as the package: validation, preprocessing, user-disjoint evaluation split, order-level baskets, Apriori mining, recommendations, and performance evaluation. The original owner-provided notebook is preserved at [`notebooks/AprioriProduct_WithEvaluation.ipynb`](notebooks/AprioriProduct_WithEvaluation.ipynb).
-
-## After pulling from `development`
-
-Run these commands from the repository root in PowerShell:
-
-```powershell
-npm install
-Copy-Item .env.example .env
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-```
-
-If PowerShell blocks activation, run `Set-ExecutionPolicy -Scope Process Bypass` once in that terminal and activate again. Then generate a local payload and start the applications:
-
-```powershell
-python -m cartsense_analysis `
-	--input public/mock-data/cart-sense-orders.csv `
-	--output artifacts/analysis-payload.json
-
-Copy-Item .env.example .env -ErrorAction SilentlyContinue
-npm run dev:full
-```
-
-The Python command can also be run manually. When a CSV is uploaded through the frontend, Express runs the same Python package automatically, validates the generated payload, and publishes it before marking the upload job complete. Ensure the Python package and its dependencies are installed in the environment used by the API. Set `PYTHON_EXECUTABLE` if the API should use a specific interpreter.
-
-To publish a manually generated payload through the backend instead of sharing the file directly, use a second PowerShell terminal while Express is running:
-
-```powershell
-$payload = Get-Content artifacts/analysis-payload.json -Raw
-Invoke-RestMethod `
-	-Uri http://localhost:3001/api/analysis/payload `
-	-Method Post `
-	-ContentType "application/json" `
-	-Body $payload
-
-Invoke-RestMethod http://localhost:3001/api/analysis/payload/status
-Invoke-RestMethod http://localhost:3001/api/analysis/payload | ConvertTo-Json -Depth 4
-```
-
-The frontend reads the payload through Express, never from the file system. The default local storage path is `artifacts/analysis-payload.json`; it is ignored by Git and should not be committed. Change `ANALYSIS_PAYLOAD_PATH` in `.env` when a teammate needs a different local location.
-
 The existing CSV upload and MySQL analysis routes still require MySQL and the schema from [`server/sql/schema.sql`](server/sql/schema.sql). The payload handoff routes do not require a database connection, so frontend and Python integration work can proceed independently.
 
 POS exports may contain the same product more than once in an order, so CartSense stores each uploaded order line and does not enforce a unique `(import_id, order_id, product_id)` constraint. The upload service automatically removes that legacy constraint from databases created with an older schema. You can also run [`server/sql/migrations/002_allow_repeated_products.sql`](server/sql/migrations/002_allow_repeated_products.sql) manually in phpMyAdmin.
